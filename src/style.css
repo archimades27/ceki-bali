@@ -2818,3 +2818,35 @@ body {
   user-select: none;
   pointer-events: none;
 }
+
+/* Network Ping & Packet Loss Pill */
+.net-stats-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #e2e8f0;
+  white-space: nowrap;
+}
+
+.net-stats-pill.is-good {
+  border-color: rgba(74, 222, 128, 0.65);
+  color: #bbf7d0;
+  background: rgba(20, 83, 45, 0.65);
+}
+
+.net-stats-pill.is-warn {
+  border-color: rgba(251, 191, 36, 0.7);
+  color: #fef08a;
+  background: rgba(120, 53, 15, 0.7);
+}
+
+.net-stats-pill.is-bad {
+  border-color: rgba(248, 113, 113, 0.8);
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.75);
+}

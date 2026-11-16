@@ -274,6 +274,34 @@ const onlineHostPeer = new OnlineHostPeer((status, err) => {
   render();
 });
 
+function updateNetStatsBadge(): void {
+  const pill = document.getElementById('net-stats-pill');
+  if (!pill) return;
+  if (isHostingOnline()) {
+    pill.textContent = `📡 Host • ${onlineHostPeer.connectedCount} Klien`;
+    pill.className = 'net-stats-pill is-good';
+    return;
+  }
+  if (onlineMode && onlineGuest.status === 'connected') {
+    const ping = onlineGuest.pingMs;
+    const loss = onlineGuest.packetLossPct;
+    if (ping === null) {
+      pill.textContent = '📶 Mengukur ping…';
+      pill.className = 'net-stats-pill';
+    } else {
+      pill.textContent = `📶 ${ping}ms • Loss ${loss}%`;
+      pill.className = `net-stats-pill ${
+        loss > 0 || ping > 200 ? 'is-bad' : ping > 80 ? 'is-warn' : 'is-good'
+      }`;
+    }
+    return;
+  }
+  if (lanMode) {
+    pill.textContent = isHostingLan() ? '📡 Host LAN' : '📡 LAN';
+    pill.className = 'net-stats-pill is-good';
+  }
+}
+
 const onlineGuest = new OnlineGuestClient(
   (payload) => {
     if (isHostingLan()) return;
@@ -289,7 +317,8 @@ const onlineGuest = new OnlineGuestClient(
       scheduleBotTurnIfNeeded();
     }
     render();
-  }
+  },
+  updateNetStatsBadge
 );
 
 const lan = new LanClient(
@@ -1408,6 +1437,13 @@ function render(): void {
       : `Babak ${state.round} • Solo (Bot)`;
 
   hudLeft.append(roundPill);
+  if (isMultiplayer()) {
+    const netPill = document.createElement('span');
+    netPill.id = 'net-stats-pill';
+    netPill.className = 'net-stats-pill';
+    hudLeft.append(netPill);
+    updateNetStatsBadge();
+  }
 
   const hudRight = document.createElement('div');
   hudRight.className = 'hud-right';

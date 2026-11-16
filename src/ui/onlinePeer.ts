@@ -82,16 +82,25 @@ export class OnlineHostPeer {
 
       conn.on('data', (data) => {
         if (this.peer !== peer) return;
+        const pkt = data as {
+          type?: string;
+          seq?: number;
+          ts?: number;
+          name?: string;
+          cardId?: string;
+          fromIndex?: number;
+          toIndex?: number;
+        };
+        if (pkt?.type === 'ping') {
+          if (conn.open) {
+            conn.send({ type: 'pong', seq: pkt.seq, ts: pkt.ts });
+          }
+          return;
+        }
         hostController.handleExternalRelayMessage({
           type: 'guest_message',
           clientId,
-          payload: data as {
-            type?: string;
-            name?: string;
-            cardId?: string;
-            fromIndex?: number;
-            toIndex?: number;
-          },
+          payload: pkt,
         });
       });
 
@@ -125,6 +134,14 @@ export class OnlineHostPeer {
         peer.reconnect();
       }
     });
+  }
+
+  get connectedCount(): number {
+    let n = 0;
+    for (const c of this.conns.values()) {
+      if (c.open) n++;
+    }
+    return n;
   }
 
   stop(notify = true): void {
@@ -169,10 +186,59 @@ export class OnlineGuestClient {
   public roundActive = false;
   public turnDurationSec = 15;
   public turnDeadlineAt: number | null = null;
+  public pingMs: number | null = null;
+  public packetLossPct = 0;
 
-  constructor(onRoomState: (payload: RoomStatePayload) => void, onStatusChange: () => void) {
+  private pingTimer: number | null = null;
+  private pingSeq = 0;
+  private pingHistory: Array<{ seq: number; sentAt: number; acked: boolean }> = [];
+  private onPingUpdate?: () => void;
+
+  constructor(
+    onRoomState: (payload: RoomStatePayload) => void,
+    onStatusChange: () => void,
+    onPingUpdate?: () => void
+  ) {
     this.onRoomState = onRoomState;
     this.onStatusChange = onStatusChange;
+    this.onPingUpdate = onPingUpdate;
+  }
+
+  private startPingLoop(conn: DataConnection): void {
+    this.stopPingLoop();
+    this.pingHistory = [];
+    this.pingMs = null;
+    this.packetLossPct = 0;
+
+    const sendPing = () => {
+      if (this.conn !== conn || !conn.open) return;
+      const now = Date.now();
+      const finished = this.pingHistory.filter((p) => now - p.sentAt >= 1500);
+      if (finished.length > 0) {
+        const lost = finished.filter((p) => !p.acked).length;
+        this.packetLossPct = Math.round((lost / finished.length) * 100);
+        this.onPingUpdate?.();
+      }
+      const seq = ++this.pingSeq;
+      this.pingHistory.push({ seq, sentAt: now, acked: false });
+      if (this.pingHistory.length > 10) {
+        this.pingHistory.shift();
+      }
+      conn.send({ type: 'ping', seq, ts: now });
+    };
+
+    sendPing();
+    this.pingTimer = window.setInterval(sendPing, 2000);
+  }
+
+  private stopPingLoop(): void {
+    if (this.pingTimer !== null) {
+      window.clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
+    this.pingHistory = [];
+    this.pingMs = null;
+    this.packetLossPct = 0;
   }
 
   connect(roomInput: string, playerName: string): void {
@@ -222,12 +288,28 @@ export class OnlineGuestClient {
           type: 'join',
           name: playerName.trim().slice(0, 16) || 'Pemain',
         });
+        this.startPingLoop(conn);
         this.onStatusChange();
       });
 
       conn.on('data', (data) => {
         if (this.conn !== conn) return;
-        const msg = data as RoomStatePayload;
+        const msg = data as RoomStatePayload | { type: 'pong'; seq?: number; ts?: number };
+        if (msg && msg.type === 'pong') {
+          const entry = this.pingHistory.find((p) => p.seq === msg.seq);
+          if (entry) entry.acked = true;
+          if (typeof msg.ts === 'number') {
+            this.pingMs = Math.max(1, Date.now() - msg.ts);
+          }
+          const now = Date.now();
+          const finished = this.pingHistory.filter((p) => p.acked || now - p.sentAt >= 1500);
+          if (finished.length > 0) {
+            const lost = finished.filter((p) => !p.acked).length;
+            this.packetLossPct = Math.round((lost / finished.length) * 100);
+          }
+          this.onPingUpdate?.();
+          return;
+        }
         if (msg && msg.type === 'room_state') {
           this.lobby = msg.lobby;
           this.mySeat = msg.mySeat;
@@ -275,6 +357,7 @@ export class OnlineGuestClient {
   }
 
   disconnect(notify = true): void {
+    this.stopPingLoop();
     if (this.conn) {
       const oldConn = this.conn;
       this.conn = null;
