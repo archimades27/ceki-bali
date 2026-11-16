@@ -56,6 +56,7 @@ let clientPendingTimer: number | null = null;
 let knownMeldSignatures = new Set<string>();
 let lanMode = false;
 let lanModalOpen = false;
+let fullscreenTipOpen = false;
 let onlineMode = false;
 let onlineModalOpen = false;
 let onlineTab: 'host' | 'join' = 'host';
@@ -281,7 +282,7 @@ const onlineHostPeer = new OnlineHostPeer((status, err) => {
   render();
 });
 
-async function toggleFullscreen(): Promise<void> {
+function toggleFullscreen(): void {
   const doc = document as Document & {
     webkitFullscreenElement?: Element | null;
     webkitExitFullscreen?: () => Promise<void> | void;
@@ -292,12 +293,15 @@ async function toggleFullscreen(): Promise<void> {
   const isFs = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
   try {
     if (isFs) {
-      if (doc.exitFullscreen) await doc.exitFullscreen();
+      if (doc.exitFullscreen) void doc.exitFullscreen();
       else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
       return;
     }
     if (root.requestFullscreen) {
-      await root.requestFullscreen();
+      void root.requestFullscreen().catch(() => {
+        fullscreenTipOpen = true;
+        render();
+      });
       return;
     }
     if (root.webkitRequestFullscreen) {
@@ -305,11 +309,10 @@ async function toggleFullscreen(): Promise<void> {
       return;
     }
   } catch {
-    // Fall through to iOS PWA tip
+    // Fall through to iOS PWA modal
   }
-  window.alert(
-    'Untuk Fullscreen penuh tanpa bar Safari di iPhone/iPad:\n1. Ketuk ikon Bagikan (⬆️) di Safari\n2. Pilih "Tambah ke Layar Utama" (Add to Home Screen)\n3. Buka Ceki Bali dari ikon di Layar Utama!'
-  );
+  fullscreenTipOpen = true;
+  render();
 }
 
 function updateNetStatsBadge(targetEl?: HTMLElement | null): void {
@@ -1288,14 +1291,16 @@ function renderPendingMatchArrows(): void {
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
   const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
   marker.setAttribute('id', 'ceki-arrow-head');
-  marker.setAttribute('markerWidth', '9');
-  marker.setAttribute('markerHeight', '9');
-  marker.setAttribute('refX', '6');
-  marker.setAttribute('refY', '4.5');
+  marker.setAttribute('markerWidth', '11');
+  marker.setAttribute('markerHeight', '11');
+  marker.setAttribute('refX', '7.5');
+  marker.setAttribute('refY', '5.5');
   marker.setAttribute('orient', 'auto');
   const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  arrowPath.setAttribute('d', 'M1,1 L7.5,4.5 L1,8 Z');
+  arrowPath.setAttribute('d', 'M1.5,1.5 L9,5.5 L1.5,9.5 L3.5,5.5 Z');
   arrowPath.setAttribute('fill', color);
+  arrowPath.setAttribute('stroke', '#ffffff');
+  arrowPath.setAttribute('stroke-width', '0.6');
   marker.appendChild(arrowPath);
   defs.appendChild(marker);
   svg.appendChild(defs);
@@ -1318,17 +1323,36 @@ function renderPendingMatchArrows(): void {
 
     const dx = dRect.left + dRect.width / 2;
     const dy = dRect.top + 4;
-    const curveOffset = (dx >= sx ? 1 : -1) * (24 + idx * 16);
+    const curveOffset = (dx >= sx ? 1 : -1) * (28 + idx * 18);
     const cx = (sx + dx) / 2 + curveOffset;
-    const cy = Math.min(sy, dy) + (dy - sy) * 0.45 - 18;
+    const cy = Math.min(sy, dy) + (dy - sy) * 0.4 - 22;
+    const pathD = `M ${sx} ${sy} Q ${cx} ${cy} ${dx} ${dy}`;
 
+    // Soft outer glow track
+    const glowTrack = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    glowTrack.setAttribute('d', pathD);
+    glowTrack.setAttribute('class', 'pending-arrow-glow-track');
+    glowTrack.setAttribute('stroke', glow);
+    svg.appendChild(glowTrack);
+
+    // Animated flowing energy line + chevron head
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', `M ${sx} ${sy} Q ${cx} ${cy} ${dx} ${dy}`);
+    path.setAttribute('d', pathD);
     path.setAttribute('class', 'pending-arrow-path');
     path.setAttribute('stroke', color);
     path.setAttribute('marker-end', 'url(#ceki-arrow-head)');
-    path.style.filter = `drop-shadow(0 0 6px ${glow})`;
+    path.style.filter = `drop-shadow(0 0 8px ${glow})`;
     svg.appendChild(path);
+
+    // Target pulse dot at the card tip
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', String(dx));
+    dot.setAttribute('cy', String(dy));
+    dot.setAttribute('r', '4');
+    dot.setAttribute('fill', '#ffffff');
+    dot.setAttribute('stroke', color);
+    dot.setAttribute('stroke-width', '2');
+    svg.appendChild(dot);
   });
 
   document.body.appendChild(svg);
@@ -1609,7 +1633,7 @@ function render(): void {
     void toggleFullscreen();
   });
 
-  hudRight.append(menuBtn, onlineHudBtn, lanBtn, historyBtn, newRoundBtn, fsBtn, settingsWrap, helpBtn);
+  hudRight.append(menuBtn, onlineHudBtn, lanBtn, fsBtn, historyBtn, newRoundBtn, settingsWrap, helpBtn);
   hud.append(hudLeft, hudRight);
   app.appendChild(hud);
 
@@ -2880,6 +2904,42 @@ function render(): void {
       overlay.appendChild(modal);
       app.appendChild(overlay);
     }
+  }
+
+  // 6. Fullscreen iOS Safari Guide Modal
+  if (fullscreenTipOpen) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        fullscreenTipOpen = false;
+        render();
+      }
+    });
+    const modal = document.createElement('div');
+    modal.className = 'win-modal';
+    modal.innerHTML = `
+      <h2 class="tutorial-title">⛶ Mode Fullscreen di iPhone / iPad</h2>
+      <p class="tutorial-body">
+        Safari di iPhone tidak mengizinkan tombol Fullscreen langsung di dalam tab browser.
+        Untuk bermain <strong>100% Fullscreen tanpa bar Safari</strong>:
+      </p>
+      <ol class="tutorial-body" style="padding-left:20px;line-height:1.6;">
+        <li>Ketuk ikon <strong>Bagikan (⬆️)</strong> di bilah Safari.</li>
+        <li>Pilih <strong>Tambah ke Layar Utama (Add to Home Screen)</strong>.</li>
+        <li>Buka ikon <strong>Ceki Bali</strong> dari Layar Utama HP Anda.</li>
+      </ol>
+    `;
+    const okBtn = document.createElement('button');
+    okBtn.className = 'btn btn-gold';
+    okBtn.textContent = 'Mengerti';
+    okBtn.addEventListener('click', () => {
+      fullscreenTipOpen = false;
+      render();
+    });
+    modal.appendChild(okBtn);
+    overlay.appendChild(modal);
+    app.appendChild(overlay);
   }
 
   if (activeFocusId) {

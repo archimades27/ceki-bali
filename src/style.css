@@ -1326,12 +1326,19 @@ body {
   }
 }
 
+.pending-arrow-glow-track {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+  opacity: 0.35;
+}
+
 .pending-arrow-path {
   fill: none;
-  stroke-width: 3;
+  stroke-width: 3.5;
   stroke-linecap: round;
-  stroke-dasharray: 8 6;
-  animation: arrowFlow 0.7s linear infinite;
+  stroke-dasharray: 10 6;
+  animation: arrowFlow 0.65s linear infinite;
 }
 
 .ceki-card.hint-arrow-target-soca {
@@ -1438,7 +1445,7 @@ body {
   width: clamp(35px, 3.7vw, 54px);
   height: clamp(84px, 8.7vw, 128px);
   background: #f8f5ee;
-  border-radius: 7px;
+  border-radius: 0;
   border: 2px solid #2b211a;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
   overflow: visible;
@@ -1457,7 +1464,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  border-radius: 5px;
+  border-radius: 0;
 }
 
 .ceki-card img {
@@ -1666,7 +1673,7 @@ body {
 .ceki-card-back {
   width: 62px;
   height: 146px;
-  border-radius: 7px;
+  border-radius: 0;
   border: 1.5px solid #d4af37;
   background: #073822 url('./assets/card-back.jpg') center / 100% 100% no-repeat;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.52);
@@ -1675,7 +1682,7 @@ body {
 .ceki-card-back.is-mini {
   width: 24px;
   height: 52px;
-  border-radius: 4px;
+  border-radius: 0;
   border-width: 1px;
 }
 
@@ -2460,23 +2467,29 @@ body {
   }
 
   .center-arena {
-    top: 38%;
+    top: 34%;
+    z-index: 4;
   }
 
   .table-surface.has-pending .center-arena {
-    left: 24%;
-    top: 42%;
-    transform: translate(-50%, -50%) scale(0.7);
+    left: 13%;
+    top: 34%;
+    transform: translate(-50%, -50%) scale(0.65);
+    z-index: 4;
+  }
+
+  .pending-spotlight {
+    z-index: 40;
   }
 
   .stock-stack {
-    width: 30px;
-    height: 64px;
+    width: 26px;
+    height: 54px;
   }
 
   .stock-stack .ceki-card-back {
-    width: 30px;
-    height: 64px;
+    width: 26px;
+    height: 54px;
   }
 
   .stock-count-badge {
@@ -2487,13 +2500,13 @@ body {
   }
 
   .pile-label {
-    font-size: 0.56rem;
+    font-size: 0.52rem;
   }
 
   .ceki-card {
     width: clamp(26px, 3.6vw, 36px);
     height: clamp(50px, 13.5dvh, 70px);
-    border-radius: 4px;
+    border-radius: 0;
     border-width: 1.5px;
   }
 
