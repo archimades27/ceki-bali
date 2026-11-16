@@ -3,6 +3,7 @@ import { decideBotDiscard, decideBotDraw } from './game/bot.ts';
 import { CARD_DEFS } from './game/deck.ts';
 import {
   acceptPendingDrawnCard,
+  cancelNgejuk,
   declareCeki,
   discardCard,
   discardPendingDrawnCard,
@@ -36,6 +37,7 @@ import { TutorialModal } from './ui/tutorial.ts';
 type GameAction =
   | { type: 'draw_stock' }
   | { type: 'ngejuk' }
+  | { type: 'cancel_ngejuk' }
   | { type: 'accept_pending' }
   | { type: 'discard_pending' }
   | { type: 'discard_hand'; cardId: string }
@@ -556,6 +558,8 @@ function applyGameAction(prev: GameState, action: GameAction): GameState {
       return drawFromStock(prev);
     case 'ngejuk':
       return ngejukDiscard(prev);
+    case 'cancel_ngejuk':
+      return cancelNgejuk(prev);
     case 'accept_pending':
       return acceptPendingDrawnCard(prev, manualOrderMode);
     case 'discard_pending':
@@ -592,6 +596,9 @@ function dispatchAction(action: GameAction): void {
         break;
       case 'ngejuk':
         sendGuestMessage({ type: 'ngejuk' });
+        break;
+      case 'cancel_ngejuk':
+        sendGuestMessage({ type: 'cancel_ngejuk' });
         break;
       case 'accept_pending':
         sendGuestMessage({ type: 'accept_pending' });
@@ -964,6 +971,11 @@ function handleAcceptPendingCard(): void {
 function handleDiscardPendingCard(): void {
   if (!state.pendingDrawnCard) return;
   dispatchAction({ type: 'discard_pending' });
+}
+
+function handleCancelNgejuk(): void {
+  if (!state.pendingDrawnCard || state.lastDrawSource !== 'ngejuk') return;
+  dispatchAction({ type: 'cancel_ngejuk' });
 }
 
 function clearSoloTurnTimer(): void {
@@ -1904,6 +1916,15 @@ function render(): void {
     dropBtn.addEventListener('click', handleDiscardPendingCard);
 
     pendingBtns.append(takeBtn, dropBtn);
+    if (state.lastDrawSource === 'ngejuk') {
+      const cancelNgejukBtn = document.createElement('button');
+      cancelNgejukBtn.className = 'btn btn-hud btn-pending-choice';
+      cancelNgejukBtn.disabled = locked;
+      cancelNgejukBtn.textContent = '↩ Tidak Jadi Ambil';
+      cancelNgejukBtn.title = 'Kembalikan kartu buangan ini ke pemain sebelumnya';
+      cancelNgejukBtn.addEventListener('click', handleCancelNgejuk);
+      pendingBtns.appendChild(cancelNgejukBtn);
+    }
     pendingBox.append(titlePill, pendingCardEl, pendingBtns);
     bottom.appendChild(pendingBox);
   }

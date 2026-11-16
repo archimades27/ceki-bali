@@ -4,6 +4,7 @@ import { checkWinWithCard, classifyThreeCards, findWinningMelds, getNyagaWaits, 
 import { decideBotDiscard, decideBotDraw } from '../src/game/bot.ts';
 import {
   acceptPendingDrawnCard,
+  cancelNgejuk,
   declareCeki,
   discardCard,
   discardPendingDrawnCard,
@@ -388,6 +389,13 @@ for (let step = 0; step < 30 && state.phase !== 'round_over'; step++) {
   assert.equal(ngejukWinAttempt.lastDrawSource, 'ngejuk');
   const blockedCeki = declareCeki(ngejukWinAttempt, 0);
   assert.equal(blockedCeki.phase, 'awaiting_discard', 'Ngenen via Ngejuk/buangan must NOT be allowed');
+
+  // Cancel Ngejuk returns the card back to player 4's discards and restores awaiting_draw
+  const cancelledNgejuk = cancelNgejuk(ngejukWinAttempt);
+  assert.equal(cancelledNgejuk.phase, 'awaiting_draw');
+  assert.equal(cancelledNgejuk.pendingDrawnCard, null);
+  assert.equal(cancelledNgejuk.lastDiscardPlayerIndex, 4);
+  assert.equal(cancelledNgejuk.players[4].discards[0].key, 'old_thousand');
 
   // Player 1 discards old_thousand from hand while Player 0 is waiting on it -> must NOT trigger Kupak/Ngenen
   let discardNoWin = startNewRound(undefined, 'nyari');

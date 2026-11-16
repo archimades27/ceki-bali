@@ -69,6 +69,7 @@ export interface GameState {
   botStep: BotStep;
   stock: CardInstance[];
   lastDiscardPlayerIndex: number | null;
+  lastNgejukFromIndex?: number | null;
   lastDrawnCardId: string | null;
   lastDrawSource?: 'stock' | 'ngejuk' | null;
   pendingDrawnCard: CardInstance | null;

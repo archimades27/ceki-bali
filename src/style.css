@@ -2518,6 +2518,19 @@ body {
     height: 58px;
   }
 
+  .discard-inspect-grid {
+    gap: 10px;
+    max-height: 62dvh;
+    overflow-y: auto;
+  }
+
+  .discard-inspect-grid .ceki-card {
+    width: 44px;
+    max-height: 95px;
+    height: auto;
+    aspect-ratio: 120 / 259;
+  }
+
   .action-dock {
     gap: 3px;
   }

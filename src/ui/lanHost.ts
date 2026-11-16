@@ -1,6 +1,7 @@
 import { decideBotDiscard, decideBotDraw } from '../game/bot.ts';
 import {
   acceptPendingDrawnCard,
+  cancelNgejuk,
   createInitialPlayers,
   declareCeki,
   discardCard,
@@ -491,6 +492,10 @@ export class LanHostController {
       case 'ngejuk':
         this.state = ngejukDiscard(prev);
         eventType = 'ngejuk';
+        break;
+      case 'cancel_ngejuk':
+        this.state = cancelNgejuk(prev);
+        eventType = 'cancel_ngejuk';
         break;
       case 'accept_pending':
         this.state = acceptPendingDrawnCard(prev, false);

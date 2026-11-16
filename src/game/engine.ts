@@ -313,6 +313,7 @@ export function ngejukDiscard(state: GameState): GameState {
     ...state,
     players: updatedPlayers,
     lastDiscardPlayerIndex: null,
+    lastNgejukFromIndex: target.playerIndex,
     lastDrawnCardId: player.isHuman ? null : taken.id,
     lastDrawSource: 'ngejuk',
     pendingDrawnCard: player.isHuman ? taken : null,
@@ -328,6 +329,45 @@ export function ngejukDiscard(state: GameState): GameState {
         cardName: CARD_DEFS[taken.key].balineseName,
       },
     ],
+  };
+}
+
+export function cancelNgejuk(state: GameState): GameState {
+  const activeIdx = state.currentPlayerIndex;
+  const activePlayer = state.players[activeIdx];
+  if (
+    state.phase !== 'awaiting_discard' ||
+    !activePlayer?.isHuman ||
+    !state.pendingDrawnCard ||
+    state.lastDrawSource !== 'ngejuk' ||
+    state.lastNgejukFromIndex === null ||
+    state.lastNgejukFromIndex === undefined
+  ) {
+    return state;
+  }
+
+  const returnedCard = state.pendingDrawnCard;
+  const sourceIdx = state.lastNgejukFromIndex;
+  const updatedPlayers = state.players.map((p, idx) => {
+    if (idx === sourceIdx) {
+      return { ...p, discards: [...p.discards, returnedCard] };
+    }
+    if (idx === activeIdx) {
+      return { ...p, statusText: 'Giliran Anda' };
+    }
+    return p;
+  });
+
+  return {
+    ...state,
+    players: updatedPlayers,
+    pendingDrawnCard: null,
+    lastDrawSource: null,
+    lastDiscardPlayerIndex: sourceIdx,
+    lastNgejukFromIndex: null,
+    phase: 'awaiting_draw',
+    botStep: null,
+    lastActionLog: `${activePlayer.name} batal Ngejuk dan mengembalikan ${CARD_DEFS[returnedCard.key].balineseName}.`,
   };
 }
 
