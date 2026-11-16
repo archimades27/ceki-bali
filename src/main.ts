@@ -1880,25 +1880,12 @@ function render(): void {
   const handControls = document.createElement('div');
   handControls.className = 'hand-controls';
 
-  const moveToggleBtn = document.createElement('button');
-  moveToggleBtn.className = `btn btn-hud btn-compact-ctrl ${moveMode ? 'is-on' : ''}`;
-  moveToggleBtn.dataset.focusId = 'move-toggle-btn';
-  moveToggleBtn.disabled = locked;
-  moveToggleBtn.textContent = moveMode ? 'Posisi: ON' : 'Atur Posisi';
-  moveToggleBtn.title = 'Aktifkan untuk memindahkan posisi kartu dengan klik, atau langsung seret (drag & drop) kapan saja';
-  moveToggleBtn.addEventListener('click', () => {
-    if (animator.isAnimating) return;
-    moveMode = !moveMode;
-    selectedMoveCardId = null;
-    render();
-  });
-
   const autoSortBtn = document.createElement('button');
   autoSortBtn.className = 'btn btn-hud btn-compact-ctrl';
   autoSortBtn.dataset.focusId = 'auto-sort-btn';
   autoSortBtn.disabled = locked;
   autoSortBtn.textContent = '↻ Susun';
-  autoSortBtn.title = 'Kelompokkan ulang Soca & Serigat secara otomatis';
+  autoSortBtn.title = 'Kelompokkan ulang Soca, Lawang & Serigat secara otomatis';
   autoSortBtn.addEventListener('click', () => {
     if (animator.isAnimating) return;
     manualOrderMode = false;
@@ -1912,7 +1899,7 @@ function render(): void {
     }
   });
 
-  handControls.append(moveToggleBtn, autoSortBtn);
+  handControls.append(autoSortBtn);
   if (!hasPendingCard) {
     statusBanners.appendChild(handControls);
   }
