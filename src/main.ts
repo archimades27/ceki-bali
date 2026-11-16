@@ -30,6 +30,7 @@ import { DeckInputController } from './ui/gamepad.ts';
 import { LanClient, type RoomStatePayload } from './ui/lanClient.ts';
 import { LanHostController } from './ui/lanHost.ts';
 import { MatchAnimator } from './ui/matchAnimator.ts';
+import { OnlineGuestClient, OnlineHostPeer, extractRoomCode } from './ui/onlinePeer.ts';
 import { TutorialModal } from './ui/tutorial.ts';
 
 type GameAction =
@@ -53,6 +54,11 @@ let cekiModalReady = true;
 let knownMeldSignatures = new Set<string>();
 let lanMode = false;
 let lanModalOpen = false;
+let onlineMode = false;
+let onlineModalOpen = false;
+let onlineTab: 'host' | 'join' = 'host';
+let startupOpen = true;
+let savedOnlineRoomCode = extractRoomCode(window.location.search);
 let inspectDiscardPlayerIdx: number | null = null;
 let lanTab: 'host' | 'join' = 'host';
 let hostErrorMsg: string | null = null;
@@ -72,8 +78,30 @@ function isHostingLan(): boolean {
   return lanHost.status === 'running';
 }
 
+function isHostingOnline(): boolean {
+  return onlineHostPeer.status === 'running' && isHostingLan();
+}
+
+function isMultiplayer(): boolean {
+  return lanMode || onlineMode;
+}
+
+function sendGuestMessage(msg: Record<string, unknown>): void {
+  if (onlineMode) onlineGuest.send(msg);
+  else lan.send(msg);
+}
+
+function isGuestConnected(): boolean {
+  return onlineMode ? onlineGuest.status === 'connected' : lan.status === 'connected';
+}
+
+function isGuestRoundActive(): boolean {
+  return onlineMode ? onlineGuest.roundActive : lan.roundActive;
+}
+
 function mySeatIndex(): number {
   if (isHostingLan()) return 0;
+  if (onlineMode && onlineGuest.status === 'connected') return onlineGuest.mySeat;
   return lanMode && lan.status === 'connected' ? lan.mySeat : 0;
 }
 
@@ -101,6 +129,8 @@ function applyRoomPayload(payload: RoomStatePayload): void {
 
   if (payload.roundActive) {
     lanModalOpen = false;
+    onlineModalOpen = false;
+    startupOpen = false;
   }
 
   if (payload.lastEvent?.type === 'start_round' || payload.state.round !== prevRound) {
@@ -132,14 +162,26 @@ const lanHost = new LanHostController(
   (payload) => {
     hostSnapshot = payload;
     if (isHostingLan()) {
-      lanMode = true;
+      if (onlineHostPeer.status === 'running') {
+        onlineMode = true;
+      } else {
+        lanMode = true;
+      }
       applyRoomPayload(payload);
     }
   },
   (status, err) => {
     hostErrorMsg = err ?? null;
-    if (status === 'stopped' && lanMode && lan.status !== 'connected' && lan.status !== 'connecting') {
+    if (
+      status === 'stopped' &&
+      (lanMode || onlineMode) &&
+      lan.status !== 'connected' &&
+      lan.status !== 'connecting' &&
+      onlineGuest.status !== 'connected' &&
+      onlineGuest.status !== 'connecting'
+    ) {
       lanMode = false;
+      onlineMode = false;
       hostSnapshot = null;
       state = startNewRound(undefined, 'nyari');
       seedKnownMelds(state, 0);
@@ -198,6 +240,8 @@ async function startHostingLan(name: string): Promise<void> {
 
 function stopLanAndReturnSolo(): void {
   lanMode = false;
+  onlineMode = false;
+  onlineHostPeer.stop();
   lanHost.stop();
   const wk = (window as unknown as {
     webkit?: { messageHandlers?: { cekiHost?: { postMessage: (v: unknown) => void } } };
@@ -205,14 +249,48 @@ function stopLanAndReturnSolo(): void {
   wk?.messageHandlers?.cekiHost?.postMessage({ action: 'stop_host' });
   fetch('/api/host-stop', { method: 'POST' }).catch(() => {});
   lan.disconnect();
+  onlineGuest.disconnect();
   hostSnapshot = null;
   hostErrorMsg = null;
   lanModalOpen = false;
+  onlineModalOpen = false;
   state = startNewRound(undefined, 'nyari');
   seedKnownMelds(state, 0);
   render();
   scheduleBotTurnIfNeeded();
 }
+
+const onlineHostPeer = new OnlineHostPeer((status, err) => {
+  hostErrorMsg = err ?? null;
+  if (status === 'running') {
+    onlineMode = true;
+    lanMode = false;
+  } else if (status === 'stopped') {
+    if (onlineMode && isHostingLan()) {
+      lanHost.stop();
+    }
+    onlineMode = false;
+  }
+  render();
+});
+
+const onlineGuest = new OnlineGuestClient(
+  (payload) => {
+    if (isHostingLan()) return;
+    onlineMode = true;
+    lanMode = false;
+    applyRoomPayload(payload);
+  },
+  () => {
+    if (onlineGuest.status === 'disconnected' && onlineMode && !isHostingLan()) {
+      onlineMode = false;
+      state = startNewRound(undefined, 'nyari');
+      seedKnownMelds(state, 0);
+      scheduleBotTurnIfNeeded();
+    }
+    render();
+  }
+);
 
 const lan = new LanClient(
   (payload) => {
@@ -311,9 +389,9 @@ const deckInput = new DeckInputController({
     if (animator.isAnimating) return;
     manualOrderMode = false;
     selectedMoveCardId = null;
-    if (lanMode) {
+    if (isMultiplayer()) {
       if (isHostingLan()) lanHost.handleLocalHostAction({ type: 'sort_hand' });
-      else lan.send({ type: 'sort_hand' });
+      else sendGuestMessage({ type: 'sort_hand' });
     } else {
       state = sortHumanHand(state);
       render();
@@ -420,7 +498,7 @@ function applyGameAction(prev: GameState, action: GameAction): GameState {
 function dispatchAction(action: GameAction): void {
   if (animator.isAnimating) return;
 
-  if (lanMode) {
+  if (isMultiplayer()) {
     if (isHostingLan()) {
       const mapped =
         action.type === 'discard_hand'
@@ -429,25 +507,25 @@ function dispatchAction(action: GameAction): void {
       lanHost.handleLocalHostAction(mapped);
       return;
     }
-    if (lan.status !== 'connected' || !lan.roundActive) return;
+    if (!isGuestConnected() || !isGuestRoundActive()) return;
     switch (action.type) {
       case 'draw_stock':
-        lan.send({ type: 'draw_stock' });
+        sendGuestMessage({ type: 'draw_stock' });
         break;
       case 'ngejuk':
-        lan.send({ type: 'ngejuk' });
+        sendGuestMessage({ type: 'ngejuk' });
         break;
       case 'accept_pending':
-        lan.send({ type: 'accept_pending' });
+        sendGuestMessage({ type: 'accept_pending' });
         break;
       case 'discard_pending':
-        lan.send({ type: 'discard_pending' });
+        sendGuestMessage({ type: 'discard_pending' });
         break;
       case 'discard_hand':
-        lan.send({ type: 'discard_hand', cardId: action.cardId });
+        sendGuestMessage({ type: 'discard_hand', cardId: action.cardId });
         break;
       case 'declare_ceki':
-        lan.send({ type: 'declare_ceki' });
+        sendGuestMessage({ type: 'declare_ceki' });
         break;
     }
     return;
@@ -710,11 +788,11 @@ function moveCardInHandById(fromId: string, toId: string): void {
   const toIdx = hand.findIndex((c) => c.id === toId);
   if (fromIdx === -1 || toIdx === -1) return;
   manualOrderMode = true;
-  if (lanMode) {
+  if (isMultiplayer()) {
     if (isHostingLan()) {
       lanHost.handleLocalHostAction({ type: 'reorder_hand', fromIndex: fromIdx, toIndex: toIdx });
     } else {
-      lan.send({ type: 'reorder_hand', fromIndex: fromIdx, toIndex: toIdx });
+      sendGuestMessage({ type: 'reorder_hand', fromIndex: fromIdx, toIndex: toIdx });
     }
   } else {
     state = reorderHumanHand(state, fromIdx, toIdx, seatIdx);
@@ -816,7 +894,7 @@ function clearSoloTurnTimer(): void {
 
 function resetSoloTurnTimer(): void {
   clearSoloTurnTimer();
-  if (lanMode) return;
+  if (isMultiplayer()) return;
   if (state.phase === 'round_over' || state.currentPlayerIndex !== 0 || customTurnSeconds <= 0) {
     activeTurnDeadlineAt = null;
     return;
@@ -826,7 +904,7 @@ function resetSoloTurnTimer(): void {
   const expectedPending = state.pendingDrawnCard?.id ?? null;
 
   soloTurnTimer = window.setTimeout(() => {
-    if (lanMode || state.phase === 'round_over' || state.currentPlayerIndex !== 0) return;
+    if (isMultiplayer() || state.phase === 'round_over' || state.currentPlayerIndex !== 0) return;
     if (state.phase !== expectedPhase || (state.pendingDrawnCard?.id ?? null) !== expectedPending) return;
     if (animator.isAnimating) return;
 
@@ -857,11 +935,11 @@ function updateTurnTimerBadge(): void {
 window.setInterval(updateTurnTimerBadge, 250);
 
 function startRoundWithDeal(): void {
-  if (lanMode) {
+  if (isMultiplayer()) {
     if (isHostingLan()) {
       lanHost.startRound(customTurnSeconds);
     } else if (lan.isHost) {
-      lan.send({ type: 'start_round', turnSeconds: customTurnSeconds });
+      sendGuestMessage({ type: 'start_round', turnSeconds: customTurnSeconds });
     }
     return;
   }
@@ -993,12 +1071,20 @@ function renderBotSeat(
   const player = state.players[playerIdx];
   const isActive = state.currentPlayerIndex === playerIdx && state.phase !== 'round_over';
 
+  const isNyari = player.readyMode === 'mecari' || player.readyMode === 'mejaga';
+  const nyariPill =
+    player.readyMode === 'mejaga'
+      ? `<span class="player-nyari-pill is-mejaga" title="Sedang Mejaga (2+ Soca)">🔥 MEJAGA</span>`
+      : player.readyMode === 'mecari'
+        ? `<span class="player-nyari-pill is-mecari" title="Sedang Mecari (1 Soca)">🔍 MECARI</span>`
+        : '';
+
   const seat = document.createElement('div');
   seat.className = `bot-seat ${seatClass} ${isActive ? 'is-active' : ''}`;
   seat.dataset.seatIndex = String(playerIdx);
 
   const badge = document.createElement('div');
-  badge.className = `bot-badge ${isActive ? 'is-active' : ''}`;
+  badge.className = `bot-badge ${isActive ? 'is-active' : ''} ${isNyari ? 'is-nyari' : ''}`;
   badge.dataset.animAnchor = `seat-${playerIdx}`;
   const activeLogo = isActive
     ? `<span class="active-turn-logo" title="Giliran ${player.name}">👑</span>`
@@ -1010,7 +1096,7 @@ function renderBotSeat(
     ${activeLogo}
     <div class="bot-avatar">${player.avatarText}</div>
     <div class="bot-meta">
-      <span class="bot-name">${player.name} (${player.score}) ${activePill}</span>
+      <span class="bot-name">${player.name} (${player.score}) ${activePill} ${nyariPill}</span>
       <span class="bot-sub">${player.statusText} • ${player.hand.length} kartu</span>
     </div>
   `;
@@ -1167,6 +1253,100 @@ function render(): void {
   const locked = animator.isAnimating;
   app.innerHTML = '';
 
+  if (startupOpen && !onlineModalOpen && !lanModalOpen) {
+    const startWrap = document.createElement('div');
+    startWrap.className = 'startup-screen';
+
+    const card = document.createElement('div');
+    card.className = 'startup-card';
+
+    card.innerHTML = `
+      <div class="startup-emblem">🎴</div>
+      <h1 class="startup-title">CEKI BALI</h1>
+      <p class="startup-subtitle">Permainan Kartu Tradisional Bali • 5 Pemain (Soca • Serigat • Lawang)</p>
+    `;
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'startup-name-row';
+    const nameLbl = document.createElement('label');
+    nameLbl.className = 'startup-name-label';
+    nameLbl.textContent = 'Nama Pemain Anda';
+    const nameInput = document.createElement('input');
+    nameInput.className = 'lan-input';
+    nameInput.maxLength = 16;
+    nameInput.value = savedPlayerName;
+    nameInput.placeholder = 'Masukkan nama Anda…';
+    nameInput.addEventListener('input', () => {
+      savedPlayerName = nameInput.value.trim() || 'Pemain';
+      window.localStorage.setItem('ceki_bali_lan_name', savedPlayerName);
+    });
+    nameRow.append(nameLbl, nameInput);
+
+    const modesGrid = document.createElement('div');
+    modesGrid.className = 'startup-modes';
+
+    const offlineBtn = document.createElement('button');
+    offlineBtn.className = 'startup-mode-btn is-offline';
+    offlineBtn.innerHTML = `
+      <span class="startup-mode-icon">🤖</span>
+      <span class="startup-mode-text">
+        <strong>Play Offline</strong>
+        <small>Solo melawan 4 Bot AI di meja kayu</small>
+      </span>
+    `;
+    offlineBtn.addEventListener('click', () => {
+      startupOpen = false;
+      if (isMultiplayer()) {
+        stopLanAndReturnSolo();
+      } else {
+        startRoundWithDeal();
+      }
+    });
+
+    const onlineBtn = document.createElement('button');
+    onlineBtn.className = 'startup-mode-btn is-online';
+    onlineBtn.innerHTML = `
+      <span class="startup-mode-icon">🌍</span>
+      <span class="startup-mode-text">
+        <strong>Play Online</strong>
+        <small>Buat Room Online / Gabung Kode &amp; Link Undangan</small>
+      </span>
+    `;
+    onlineBtn.addEventListener('click', () => {
+      startupOpen = false;
+      onlineTab = savedOnlineRoomCode ? 'join' : 'host';
+      onlineModalOpen = true;
+      render();
+    });
+
+    const lanBtnStart = document.createElement('button');
+    lanBtnStart.className = 'startup-mode-btn is-lan';
+    lanBtnStart.innerHTML = `
+      <span class="startup-mode-icon">📡</span>
+      <span class="startup-mode-text">
+        <strong>Play LAN</strong>
+        <small>Main bersama teman dalam 1 Wi-Fi lokal</small>
+      </span>
+    `;
+    lanBtnStart.addEventListener('click', () => {
+      startupOpen = false;
+      lanModalOpen = true;
+      render();
+    });
+
+    modesGrid.append(offlineBtn, onlineBtn, lanBtnStart);
+
+    const guideBtn = document.createElement('button');
+    guideBtn.className = 'btn btn-hud startup-guide-btn';
+    guideBtn.textContent = '📖 Panduan & Aturan Main';
+    guideBtn.addEventListener('click', () => tutorial.open(0));
+
+    card.append(nameRow, modesGrid, guideBtn);
+    startWrap.appendChild(card);
+    app.appendChild(startWrap);
+    return;
+  }
+
   const mySeat = mySeatIndex();
   const human = state.players[mySeat];
   const isHumanTurn = state.currentPlayerIndex === mySeat;
@@ -1209,22 +1389,48 @@ function render(): void {
   const hudLeft = document.createElement('div');
   hudLeft.className = 'hud-left';
 
-  const activeLobby = isHostingLan() ? (hostSnapshot?.lobby ?? []) : lan.lobby;
+  const activeLobby = isHostingLan()
+    ? (hostSnapshot?.lobby ?? [])
+    : onlineMode
+      ? onlineGuest.lobby
+      : lan.lobby;
   const roundPill = document.createElement('span');
   roundPill.className = 'round-pill';
-  roundPill.textContent = lanMode
-    ? `Babak ${state.round} • ${isHostingLan() ? 'Host LAN' : 'LAN Wi-Fi'} (${activeLobby.filter((s) => s.connected).length}/5)`
-    : `Babak ${state.round} • Solo (Bot)`;
+  roundPill.textContent = onlineMode
+    ? `Babak ${state.round} • ${isHostingOnline() ? `Online Host (${onlineHostPeer.roomCode})` : `Room ${onlineGuest.roomCode}`} (${activeLobby.filter((s) => s.connected).length}/5)`
+    : lanMode
+      ? `Babak ${state.round} • ${isHostingLan() ? 'Host LAN' : 'LAN Wi-Fi'} (${activeLobby.filter((s) => s.connected).length}/5)`
+      : `Babak ${state.round} • Solo (Bot)`;
 
   hudLeft.append(roundPill);
 
   const hudRight = document.createElement('div');
   hudRight.className = 'hud-right';
 
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'btn btn-hud';
+  menuBtn.textContent = '🏠 Menu';
+  menuBtn.title = 'Kembali ke Halaman Awal (Offline / Online / LAN)';
+  menuBtn.addEventListener('click', () => {
+    settingsOpen = false;
+    startupOpen = true;
+    render();
+  });
+
+  const onlineHudBtn = document.createElement('button');
+  onlineHudBtn.className = `btn btn-hud ${onlineMode ? 'is-on' : ''}`;
+  onlineHudBtn.textContent = onlineMode ? '🌍 Online: ON' : '🌍 Online';
+  onlineHudBtn.title = 'Buat atau gabung Room Online';
+  onlineHudBtn.addEventListener('click', () => {
+    settingsOpen = false;
+    onlineModalOpen = !onlineModalOpen;
+    render();
+  });
+
   const lanBtn = document.createElement('button');
   lanBtn.className = `btn btn-hud ${lanMode ? 'is-on' : ''}`;
   lanBtn.dataset.focusId = 'lan-btn';
-  lanBtn.textContent = lanMode ? '🌐 LAN: ON' : '🌐 Main LAN';
+  lanBtn.textContent = lanMode ? '📡 LAN: ON' : '📡 LAN';
   lanBtn.title = 'Main bersama teman di Wi-Fi yang sama (atau tetap Solo vs Bot)';
   lanBtn.addEventListener('click', () => {
     settingsOpen = false;
@@ -1242,7 +1448,7 @@ function render(): void {
     render();
   });
 
-  const canStartNewRound = !lanMode || isHostingLan() || lan.isHost;
+  const canStartNewRound = !isMultiplayer() || isHostingLan() || lan.isHost || onlineGuest.isHost;
   const newRoundBtn = document.createElement('button');
   newRoundBtn.className = 'btn btn-hud';
   newRoundBtn.dataset.focusId = 'new-round-btn';
@@ -1302,7 +1508,7 @@ function render(): void {
     settingsWrap.appendChild(menu);
   }
 
-  hudRight.append(lanBtn, historyBtn, newRoundBtn, settingsWrap, helpBtn);
+  hudRight.append(menuBtn, onlineHudBtn, lanBtn, historyBtn, newRoundBtn, settingsWrap, helpBtn);
   hud.append(hudLeft, hudRight);
   app.appendChild(hud);
 
@@ -1327,9 +1533,15 @@ function render(): void {
     const isTurn = state.currentPlayerIndex === idx && state.phase !== 'round_over';
     const row = document.createElement('div');
     row.className = `underlords-score-row ${isMe ? 'is-human' : ''} ${isTurn ? 'is-turn' : ''}`;
+    const nyariTag =
+      p.readyMode === 'mejaga'
+        ? ' <span class="ul-nyari is-mejaga" title="Mejaga">🔥</span>'
+        : p.readyMode === 'mecari'
+          ? ' <span class="ul-nyari is-mecari" title="Mecari">🔍</span>'
+          : '';
     row.innerHTML = `
       <span class="ul-dot">${isMe ? '★' : p.avatarText}</span>
-      <span class="ul-name">${p.name}</span>
+      <span class="ul-name">${p.name}${nyariTag}</span>
       <strong class="ul-val">${p.score}</strong>
     `;
     scorePanel.appendChild(row);
@@ -1413,7 +1625,7 @@ function render(): void {
   if (!hasPendingCard || canCeki) {
     statusBanners.appendChild(turnPrompt);
   }
-  if (!lanMode) {
+  if (!isMultiplayer()) {
     if (isHumanTurn && state.phase !== 'round_over' && customTurnSeconds > 0 && soloTurnTimer === null) {
       resetSoloTurnTimer();
     } else if (!isHumanTurn || state.phase === 'round_over') {
@@ -1477,9 +1689,9 @@ function render(): void {
     if (animator.isAnimating) return;
     manualOrderMode = false;
     selectedMoveCardId = null;
-    if (lanMode) {
+    if (isMultiplayer()) {
       if (isHostingLan()) lanHost.handleLocalHostAction({ type: 'sort_hand' });
-      else lan.send({ type: 'sort_hand' });
+      else sendGuestMessage({ type: 'sort_hand' });
     } else {
       state = sortHumanHand(state, mySeat);
       render();
@@ -2217,6 +2429,271 @@ function render(): void {
     app.appendChild(overlay);
   }
 
+  // 4b. Room Online (WebRTC P2P) Modal
+  if (onlineModalOpen) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'win-modal lan-modal';
+
+    const header = document.createElement('div');
+    header.className = 'lan-modal-header';
+    header.innerHTML = `<h2 class="tutorial-title">🌍 Room Online (Mabar Jarak Jauh)</h2>`;
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'btn-icon-close';
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', () => {
+      onlineModalOpen = false;
+      render();
+    });
+    header.appendChild(closeBtn);
+    modal.appendChild(header);
+
+    const desc = document.createElement('p');
+    desc.className = 'lan-desc';
+    desc.textContent =
+      'Buat Room Online untuk mendapatkan Kode Room & Link Undangan, lalu bagikan ke teman di mana saja. Kursi kosong otomatis diisi Bot.';
+    modal.appendChild(desc);
+
+    const tabs = document.createElement('div');
+    tabs.className = 'lan-tabs';
+    const hostTabBtn = document.createElement('button');
+    hostTabBtn.className = `btn lan-tab-btn ${onlineTab === 'host' ? 'is-active' : ''}`;
+    hostTabBtn.textContent = '🌐 Buat Room Online';
+    hostTabBtn.addEventListener('click', () => {
+      onlineTab = 'host';
+      render();
+    });
+    const joinTabBtn = document.createElement('button');
+    joinTabBtn.className = `btn lan-tab-btn ${onlineTab === 'join' ? 'is-active' : ''}`;
+    joinTabBtn.textContent = '🔗 Gabung Room (Kode)';
+    joinTabBtn.addEventListener('click', () => {
+      onlineTab = 'join';
+      render();
+    });
+    tabs.append(hostTabBtn, joinTabBtn);
+    modal.appendChild(tabs);
+
+    const isOnlineHost = isHostingOnline();
+    const isOnlineGuest = onlineGuest.status === 'connected';
+    const isInOnlineRoom = isOnlineHost || isOnlineGuest;
+    const onlineLobby = isOnlineHost ? (hostSnapshot?.lobby ?? []) : onlineGuest.lobby;
+    const onlineMySeat = isOnlineHost ? 0 : onlineGuest.mySeat;
+    const onlineIsHost = isOnlineHost || onlineGuest.isHost;
+    const onlineRoundActive = isOnlineHost
+      ? Boolean(hostSnapshot?.roundActive)
+      : onlineGuest.roundActive;
+
+    if (onlineTab === 'host') {
+      const form = document.createElement('div');
+      form.className = 'lan-form';
+
+      const nameInput = document.createElement('input');
+      nameInput.className = 'lan-input';
+      nameInput.maxLength = 16;
+      nameInput.placeholder = 'Nama Host (mis. Made)';
+      nameInput.value = savedPlayerName;
+      nameInput.addEventListener('input', () => {
+        savedPlayerName = nameInput.value.trim() || 'Host';
+        window.localStorage.setItem('ceki_bali_lan_name', savedPlayerName);
+      });
+
+      const timerRow = document.createElement('div');
+      timerRow.className = 'lan-timer-row';
+      const timerLbl = document.createElement('label');
+      timerLbl.textContent = '⏱ Timer Giliran (detik, 0 = tanpa batas):';
+      const timerInput = document.createElement('input');
+      timerInput.type = 'number';
+      timerInput.min = '0';
+      timerInput.max = '120';
+      timerInput.className = 'lan-input lan-timer-input';
+      timerInput.value = String(customTurnSeconds);
+      timerInput.addEventListener('input', () => {
+        const val = Math.max(0, Math.min(120, Number(timerInput.value) || 0));
+        customTurnSeconds = val;
+        window.localStorage.setItem('ceki_bali_turn_sec', String(val));
+      });
+      timerRow.append(timerLbl, timerInput);
+
+      const createBtn = document.createElement('button');
+      createBtn.className = 'btn btn-gold';
+      createBtn.disabled = onlineHostPeer.status === 'starting';
+      createBtn.textContent =
+        onlineHostPeer.status === 'starting'
+          ? 'Membuat Room Online…'
+          : isOnlineHost
+            ? 'Perbarui Nama Host'
+            : '🚀 Buat Room Online';
+      createBtn.addEventListener('click', () => {
+        const cleanName = nameInput.value.trim().slice(0, 16) || 'Host';
+        savedPlayerName = cleanName;
+        window.localStorage.setItem('ceki_bali_lan_name', cleanName);
+        if (isOnlineHost) {
+          lanHost.setHostName(cleanName);
+        } else {
+          lan.disconnect();
+          lanHost.stop();
+          lanMode = false;
+          onlineHostPeer.start(cleanName, lanHost);
+        }
+      });
+
+      form.append(nameInput, timerRow, createBtn);
+      modal.appendChild(form);
+
+      if (hostErrorMsg) {
+        const errEl = document.createElement('div');
+        errEl.className = 'lan-error';
+        errEl.textContent = hostErrorMsg;
+        modal.appendChild(errEl);
+      }
+
+      if (isOnlineHost && onlineHostPeer.roomCode) {
+        const urlBox = document.createElement('div');
+        urlBox.className = 'lan-urls-box';
+        const codeRow = document.createElement('div');
+        codeRow.className = 'online-code-row';
+        codeRow.innerHTML = `<span>Kode Room:</span><strong class="online-room-code">${onlineHostPeer.roomCode}</strong>`;
+        const copyCodeBtn = document.createElement('button');
+        copyCodeBtn.className = 'btn btn-hud btn-copy-url';
+        copyCodeBtn.textContent = '📋 Salin Kode';
+        copyCodeBtn.addEventListener('click', () => {
+          navigator.clipboard?.writeText(onlineHostPeer.roomCode).then(() => {
+            copyCodeBtn.textContent = '✓ Tersalin!';
+            window.setTimeout(() => {
+              copyCodeBtn.textContent = '📋 Salin Kode';
+            }, 1800);
+          });
+        });
+        codeRow.appendChild(copyCodeBtn);
+        urlBox.appendChild(codeRow);
+
+        const urlRow = document.createElement('div');
+        urlRow.className = 'lan-url-row';
+        const urlText = document.createElement('code');
+        urlText.className = 'lan-url-code';
+        urlText.textContent = onlineHostPeer.inviteUrl;
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'btn btn-hud btn-copy-url';
+        copyBtn.textContent = '📋 Salin Link';
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard?.writeText(onlineHostPeer.inviteUrl).then(() => {
+            copyBtn.textContent = '✓ Tersalin!';
+            window.setTimeout(() => {
+              copyBtn.textContent = '📋 Salin Link';
+            }, 1800);
+          });
+        });
+        urlRow.append(urlText, copyBtn);
+        urlBox.appendChild(urlRow);
+        modal.appendChild(urlBox);
+      }
+    } else {
+      const form = document.createElement('div');
+      form.className = 'lan-form';
+
+      const nameInput = document.createElement('input');
+      nameInput.className = 'lan-input';
+      nameInput.maxLength = 16;
+      nameInput.placeholder = 'Nama Anda (mis. Ketut)';
+      nameInput.value = savedPlayerName;
+
+      const roomInput = document.createElement('input');
+      roomInput.className = 'lan-input';
+      roomInput.placeholder = 'Kode Room (mis. K7M2P) atau tempel Link Undangan';
+      roomInput.value = savedOnlineRoomCode;
+
+      const connectBtn = document.createElement('button');
+      connectBtn.className = 'btn btn-gold';
+      connectBtn.disabled = onlineGuest.status === 'connecting';
+      connectBtn.textContent =
+        onlineGuest.status === 'connecting'
+          ? 'Menghubungkan ke Room…'
+          : isOnlineGuest
+            ? 'Terhubung! (Perbarui Nama)'
+            : '🔗 Gabung Room Online';
+      connectBtn.addEventListener('click', () => {
+        savedPlayerName = nameInput.value.trim().slice(0, 16) || 'Pemain';
+        savedOnlineRoomCode = extractRoomCode(roomInput.value);
+        window.localStorage.setItem('ceki_bali_lan_name', savedPlayerName);
+        if (isOnlineGuest) {
+          onlineGuest.send({ type: 'set_name', name: savedPlayerName });
+        } else {
+          onlineHostPeer.stop();
+          lanHost.stop();
+          lan.disconnect();
+          lanMode = false;
+          onlineGuest.connect(roomInput.value, savedPlayerName);
+        }
+      });
+
+      form.append(nameInput, roomInput, connectBtn);
+      modal.appendChild(form);
+
+      if (onlineGuest.errorMessage) {
+        const errEl = document.createElement('div');
+        errEl.className = 'lan-error';
+        errEl.textContent = onlineGuest.errorMessage;
+        modal.appendChild(errEl);
+      }
+    }
+
+    if (isInOnlineRoom && onlineLobby.length > 0) {
+      const lobbyList = document.createElement('div');
+      lobbyList.className = 'lan-lobby-list';
+      onlineLobby.forEach((seat) => {
+        const row = document.createElement('div');
+        row.className = `lan-seat-row ${seat.seatIndex === onlineMySeat ? 'is-me' : ''}`;
+        row.innerHTML = `
+          <span>Kursi ${seat.seatIndex + 1}: <strong>${seat.name}</strong></span>
+          <span class="lan-seat-badge">${
+            seat.seatIndex === 0
+              ? 'Host (Online)'
+              : seat.connected
+                ? 'Manusia (Online)'
+                : 'Bot Pengisi'
+          }</span>
+        `;
+        lobbyList.appendChild(row);
+      });
+      modal.appendChild(lobbyList);
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'lan-footer';
+
+    if (isInOnlineRoom) {
+      const startOnlineBtn = document.createElement('button');
+      startOnlineBtn.className = 'btn btn-gold';
+      startOnlineBtn.disabled = !onlineIsHost;
+      startOnlineBtn.textContent = onlineIsHost
+        ? onlineRoundActive
+          ? '↻ Mulai Babak Baru Online'
+          : '▶ Mulai Main Bersama (Online)'
+        : 'Menunggu Host Memulai…';
+      startOnlineBtn.addEventListener('click', () => {
+        onlineMode = true;
+        if (isHostingLan()) {
+          lanHost.startRound(customTurnSeconds);
+        } else {
+          onlineGuest.send({ type: 'start_round', turnSeconds: customTurnSeconds });
+        }
+      });
+      footer.appendChild(startOnlineBtn);
+    }
+
+    const soloBtn = document.createElement('button');
+    soloBtn.className = 'btn btn-hud';
+    soloBtn.textContent = isInOnlineRoom ? '🛑 Keluar Room (Mode Solo)' : '🤖 Main Offline (Solo)';
+    soloBtn.addEventListener('click', stopLanAndReturnSolo);
+    footer.appendChild(soloBtn);
+
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
+    app.appendChild(overlay);
+  }
+
   // 5. Inspect All Discards Modal for any player
   if (inspectDiscardPlayerIdx !== null) {
     const targetPlayer = state.players[inspectDiscardPlayerIdx];
@@ -2301,9 +2778,15 @@ function render(): void {
 render();
 scheduleBotTurnIfNeeded();
 
-// Auto-connect Guests when opened from a LAN Host URL (e.g. http://192.168.x.x:4173/)
+// Auto-open Online Join modal if URL has ?room=CODE, or auto-connect LAN Guest on private LAN URL
 let autoJoinedLan = false;
-if (window.location.protocol === 'http:' && window.location.host) {
+if (savedOnlineRoomCode) {
+  autoJoinedLan = true;
+  startupOpen = false;
+  onlineTab = 'join';
+  onlineModalOpen = true;
+  render();
+} else if (window.location.protocol === 'http:' && window.location.host) {
   const host = window.location.hostname;
   const isPrivateLanHost =
     /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.|100\.)/.test(host) || host.endsWith('.local');
@@ -2313,6 +2796,7 @@ if (window.location.protocol === 'http:' && window.location.host) {
       .then((r) => (r.ok ? r.json() : null))
       .then((info) => {
         if (!info || isHostingLan()) return;
+        startupOpen = false;
         lanMode = true;
         lanTab = 'join';
         lanModalOpen = true;
@@ -2323,7 +2807,7 @@ if (window.location.protocol === 'http:' && window.location.host) {
 }
 
 const TUTORIAL_KEY = 'ceki_bali_tutorial_seen_v2';
-if (!autoJoinedLan && !window.localStorage.getItem(TUTORIAL_KEY)) {
+if (!autoJoinedLan && !startupOpen && !window.localStorage.getItem(TUTORIAL_KEY)) {
   window.localStorage.setItem(TUTORIAL_KEY, '1');
   tutorial.open(0);
 }

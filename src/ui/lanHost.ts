@@ -41,6 +41,7 @@ export class LanHostController {
   private state: GameState;
   private onLocalRoomUpdate: (payload: RoomStatePayload) => void;
   private onStatusChange: (status: 'stopped' | 'starting' | 'running' | 'error', err?: string) => void;
+  private customSender: ((clientId: string, payload: RoomStatePayload) => void) | null = null;
 
   public status: 'stopped' | 'starting' | 'running' | 'error' = 'stopped';
   public errorMessage: string | null = null;
@@ -110,7 +111,34 @@ export class LanHostController {
     });
   }
 
+  startOnline(
+    hostName: string,
+    shareUrl: string,
+    sender: (clientId: string, payload: RoomStatePayload) => void
+  ): void {
+    this.cleanupConnection();
+    this.customSender = sender;
+    this.hostName = hostName.trim().slice(0, 16) || 'Host';
+    this.urls = [shareUrl];
+    this.status = 'running';
+    this.errorMessage = null;
+    this.roundActive = false;
+    this.guests.clear();
+    this.state = startNewRound(undefined, 'nyari', this.buildPlayers(false));
+    this.onStatusChange('running');
+    this.broadcastRoom();
+  }
+
+  handleExternalRelayMessage(msg: {
+    type?: string;
+    clientId?: string;
+    payload?: { type?: string; name?: string; cardId?: string; fromIndex?: number; toIndex?: number };
+  }): void {
+    this.handleRelayMessage(msg);
+  }
+
   private cleanupConnection(): void {
+    this.customSender = null;
     if (this.botTimer !== null) {
       window.clearTimeout(this.botTimer);
       this.botTimer = null;
@@ -282,6 +310,25 @@ export class LanHostController {
       state: this.sanitizeStateForSeat(0),
     };
     this.onLocalRoomUpdate(hostPayload);
+
+    if (this.customSender) {
+      for (const guest of this.guests.values()) {
+        const payload: RoomStatePayload = {
+          type: 'room_state',
+          mySeat: guest.seatIndex,
+          isHost: false,
+          roundActive: this.roundActive,
+          turnDurationSec: this.turnDurationSec,
+          turnDeadlineAt: this.turnDeadlineAt,
+          urls: this.urls,
+          lobby,
+          lastEvent: lastEvent ?? null,
+          state: this.sanitizeStateForSeat(guest.seatIndex),
+        };
+        this.customSender(guest.clientId, payload);
+      }
+      return;
+    }
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 

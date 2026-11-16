@@ -46,6 +46,7 @@ export interface Player {
   score: number;
   avatarText: string;
   statusText: string;
+  readyMode?: 'mecari' | 'mejaga' | null;
 }
 
 export type TurnPhase = 'awaiting_draw' | 'awaiting_discard' | 'bot_thinking' | 'round_over';

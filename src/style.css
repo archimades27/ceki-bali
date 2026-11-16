@@ -2594,3 +2594,210 @@ body {
     box-shadow: -8px 0 24px rgba(0, 0, 0, 0.75);
   }
 }
+
+/* Startup Page */
+.startup-screen {
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: radial-gradient(circle at 50% 35%, rgba(92, 52, 24, 0.72), rgba(20, 10, 4, 0.96));
+}
+
+.startup-card {
+  width: 100%;
+  max-width: 540px;
+  background: linear-gradient(160deg, rgba(48, 26, 14, 0.96), rgba(26, 13, 6, 0.98));
+  border: 2px solid rgba(250, 204, 21, 0.45);
+  border-radius: 24px;
+  padding: 28px 26px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.75), 0 0 40px rgba(217, 119, 6, 0.16);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.startup-emblem {
+  font-size: 2.6rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(250, 204, 21, 0.35));
+}
+
+.startup-title {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+  color: #fef08a;
+  text-shadow: 0 2px 14px rgba(245, 158, 11, 0.4);
+}
+
+.startup-subtitle {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #e7dcc8;
+  opacity: 0.88;
+}
+
+.startup-name-row {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.startup-name-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+.startup-modes {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.startup-mode-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fefce8;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.startup-mode-btn:hover {
+  transform: translateY(-2px);
+  border-color: #facc15;
+  background: rgba(250, 204, 21, 0.14);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.startup-mode-btn.is-offline {
+  border-color: rgba(74, 222, 128, 0.45);
+  background: linear-gradient(135deg, rgba(22, 101, 52, 0.48), rgba(20, 83, 45, 0.35));
+}
+
+.startup-mode-btn.is-online {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: linear-gradient(135deg, rgba(3, 105, 161, 0.48), rgba(12, 74, 110, 0.35));
+}
+
+.startup-mode-btn.is-lan {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: linear-gradient(135deg, rgba(146, 64, 14, 0.48), rgba(120, 53, 15, 0.35));
+}
+
+.startup-mode-icon {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+}
+
+.startup-mode-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.startup-mode-text strong {
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.startup-mode-text small {
+  font-size: 0.78rem;
+  color: #e2e8f0;
+  opacity: 0.88;
+}
+
+.startup-guide-btn {
+  margin-top: 4px;
+}
+
+/* Opponent Nyari (Mecari / Mejaga) Visible Badge */
+.bot-badge.is-nyari {
+  border-color: rgba(251, 191, 36, 0.85);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.38);
+}
+
+.player-nyari-pill {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.player-nyari-pill.is-mecari {
+  background: #fbbf24;
+  color: #1c1008;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.75);
+}
+
+.player-nyari-pill.is-mejaga {
+  background: #34d399;
+  color: #052e16;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
+}
+
+/* Online Room Code Row */
+.online-code-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.online-room-code {
+  font-size: 1.25rem;
+  letter-spacing: 0.16em;
+  color: #fef08a;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .startup-screen {
+    padding: 8px 16px;
+  }
+  .startup-card {
+    max-width: 680px;
+    padding: 14px 18px;
+    gap: 10px;
+  }
+  .startup-emblem {
+    display: none;
+  }
+  .startup-title {
+    font-size: 1.35rem;
+  }
+  .startup-modes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .startup-mode-btn {
+    padding: 10px 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}

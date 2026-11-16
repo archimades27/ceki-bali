@@ -116,6 +116,7 @@ export function startNewRound(
   for (let i = 0; i < players.length; i++) {
     const dealt = deck.splice(0, 11);
     players[i].hand = players[i].isHuman ? sortHand(dealt) : dealt;
+    players[i].readyMode = getReadyStatus(players[i].hand, playStyle).mode;
   }
 
   // Place 1 opening discard to the right of the player just before the random starter
@@ -251,6 +252,7 @@ export function drawFromStock(state: GameState): GameState {
     return {
       ...p,
       hand: nextHand,
+      readyMode: p.isHuman ? p.readyMode : null,
       statusText: 'Ambil kartu',
     };
   });
@@ -302,6 +304,7 @@ export function ngejukDiscard(state: GameState): GameState {
       ...p,
       hand: nextHand,
       discards: nextDiscards,
+      readyMode: p.isHuman ? p.readyMode : null,
       statusText: 'Ngejuk!',
     };
   });
@@ -346,7 +349,7 @@ export function acceptPendingDrawnCard(
   const updatedPlayers = state.players.map((p, idx) => {
     if (idx !== activeIdx) return p;
     const nextHand = preserveHumanOrder ? [...p.hand, drawn] : sortHand([...p.hand, drawn]);
-    return { ...p, hand: nextHand };
+    return { ...p, hand: nextHand, readyMode: null };
   });
   return {
     ...state,
@@ -370,14 +373,21 @@ export function discardPendingDrawnCard(state: GameState): GameState {
   const cardToDiscard = state.pendingDrawnCard;
   const nextPlayerIdx = (activeIdx + 1) % state.players.length;
   const nextPlayer = state.players[nextPlayerIdx];
-  const waits = getNyagaWaits(activePlayer.hand, state.playStyle);
+  const ready = getReadyStatus(activePlayer.hand, state.playStyle);
+  const waits = ready.waits;
 
   const updatedPlayers = state.players.map((p, idx) => {
     if (idx === activeIdx) {
       return {
         ...p,
         discards: [...p.discards, cardToDiscard],
-        statusText: waits.length > 0 ? 'Nyari!' : `Buang ${CARD_DEFS[cardToDiscard.key].balineseName}`,
+        readyMode: ready.mode,
+        statusText:
+          ready.mode === 'mejaga'
+            ? 'Mejaga!'
+            : ready.mode === 'mecari'
+              ? 'Mecari!'
+              : `Buang ${CARD_DEFS[cardToDiscard.key].balineseName}`,
       };
     }
     if (idx === nextPlayerIdx) {
@@ -482,7 +492,8 @@ export function discardCard(
   if (!cardToDiscard) return state;
 
   const nextHand = player.hand.filter((c) => c.id !== cardId);
-  const waits = getNyagaWaits(nextHand, state.playStyle);
+  const ready = getReadyStatus(nextHand, state.playStyle);
+  const waits = ready.waits;
 
   const nextPlayerIdx = (playerIdx + 1) % state.players.length;
   const nextPlayer = state.players[nextPlayerIdx];
@@ -493,7 +504,13 @@ export function discardCard(
         ...p,
         hand: p.isHuman && !preserveHumanOrder ? sortHand(nextHand) : nextHand,
         discards: [...p.discards, cardToDiscard],
-        statusText: waits.length > 0 ? 'Nyari!' : `Buang ${CARD_DEFS[cardToDiscard.key].balineseName}`,
+        readyMode: ready.mode,
+        statusText:
+          ready.mode === 'mejaga'
+            ? 'Mejaga!'
+            : ready.mode === 'mecari'
+              ? 'Mecari!'
+              : `Buang ${CARD_DEFS[cardToDiscard.key].balineseName}`,
       };
     }
     if (idx === nextPlayerIdx) {
