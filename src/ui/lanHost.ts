@@ -209,7 +209,7 @@ export class LanHostController {
     this.state = startNewRound(this.roundActive ? this.state : undefined, 'nyari', players);
     this.roundActive = true;
     this.resetHumanTurnTimer(false);
-    this.broadcastRoom({ type: 'start_round', actorIndex: 0 });
+    this.broadcastRoom({ type: 'start_round', actorIndex: this.state.currentPlayerIndex });
     this.scheduleBotIfNeeded();
   }
 
@@ -427,7 +427,18 @@ export class LanHostController {
     if (msg.type === 'from_guest' && msg.clientId && msg.payload) {
       const guest = this.guests.get(msg.clientId);
       if (!guest) return;
-      const p = msg.payload;
+      const p = msg.payload as {
+        type?: string;
+        name?: string;
+        cardId?: string;
+        fromIndex?: number;
+        toIndex?: number;
+        turnSeconds?: number;
+      };
+      if (p.type === 'start_round') {
+        this.startRound(typeof p.turnSeconds === 'number' ? p.turnSeconds : undefined);
+        return;
+      }
       if (p.type === 'set_name' && typeof p.name === 'string') {
         const clean = this.makeUniqueName(p.name, guest.seatIndex);
         guest.name = clean;

@@ -2357,165 +2357,217 @@ body {
 /* iPhone & Mobile Landscape (320px–540px height) */
 @media (max-height: 540px) {
   .hud-bar {
-    padding: 3px 8px;
-    min-height: 32px;
-    gap: 6px;
+    padding: 2px 6px;
+    min-height: 28px;
+    gap: 5px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
 
-  .round-pill {
-    font-size: 0.68rem;
-    padding: 2px 8px;
+  .hud-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hud-left,
+  .hud-right {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  .round-pill,
+  .net-stats-pill {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    white-space: nowrap;
   }
 
   .hud-right {
-    gap: 4px;
+    gap: 3px;
   }
 
   .hud-right .btn {
-    padding: 3px 7px;
-    font-size: 0.68rem;
-    border-radius: 7px;
+    padding: 2px 6px;
+    font-size: 0.62rem;
+    border-radius: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .table-wrapper {
-    padding: 4px 6px;
+    padding: 2px 4px;
   }
 
   .table-surface {
-    grid-template-columns: minmax(110px, 1fr) auto minmax(110px, 1fr);
-    grid-template-rows: 52px 1fr 122px;
-    padding: 4px 6px;
+    grid-template-columns: minmax(90px, 1fr) auto minmax(90px, 1fr);
+    grid-template-rows: 38px 1fr 98px;
+    padding: 2px 4px;
     gap: 2px;
   }
 
   .table-surface::before {
     top: 40%;
     width: min(84%, 560px);
-    height: min(86%, 235px);
-    border-width: 6px;
-    border-bottom-width: 10px;
+    height: min(84%, 220px);
+    border-width: 5px;
+    border-bottom-width: 8px;
   }
 
   .underlords-scoreboard {
-    top: 4px;
-    left: 6px;
-    width: 106px;
-    padding: 3px 5px;
-    gap: 2px;
-    border-radius: 8px;
+    top: 2px;
+    left: 4px;
+    width: 84px;
+    padding: 2px 4px;
+    gap: 1px;
+    border-radius: 7px;
   }
 
   .underlords-score-header {
-    font-size: 0.54rem;
-    padding-bottom: 2px;
+    font-size: 0.48rem;
+    padding-bottom: 1px;
   }
 
   .underlords-score-row {
-    font-size: 0.62rem;
-    padding: 1.5px 4px;
-    gap: 4px;
+    font-size: 0.56rem;
+    padding: 1px 3px;
+    gap: 3px;
   }
 
   .ul-dot {
-    width: 13px;
-    height: 13px;
-    font-size: 0.5rem;
+    width: 11px;
+    height: 11px;
+    font-size: 0.46rem;
   }
 
   .ul-val {
-    font-size: 0.66rem;
+    font-size: 0.58rem;
   }
 
   .seat-top-left {
-    transform: scale(0.66) translate(-12px, 14px);
+    transform: scale(0.6) translate(-10px, 8px);
   }
 
   .seat-top-right {
-    transform: scale(0.66) translate(12px, 14px);
+    transform: scale(0.6) translate(10px, 8px);
   }
 
   .seat-left {
-    transform: scale(0.68) translateX(22px);
+    transform: scale(0.6) translate(92px, 4px);
   }
 
   .seat-right {
-    transform: scale(0.68) translateX(-22px);
+    transform: scale(0.6) translate(-6px, 4px);
   }
 
   .center-arena {
-    top: 36%;
+    top: 43%;
   }
 
   .table-surface.has-pending .center-arena {
-    left: 26%;
-    top: 35%;
-    transform: translate(-50%, -50%) scale(0.74);
+    left: 24%;
+    top: 42%;
+    transform: translate(-50%, -50%) scale(0.7);
   }
 
   .stock-stack {
-    width: 38px;
-    height: 88px;
+    width: 30px;
+    height: 64px;
+  }
+
+  .stock-stack .ceki-card-back {
+    width: 30px;
+    height: 64px;
   }
 
   .stock-count-badge {
-    font-size: 0.62rem;
-    padding: 1px 5px;
-    bottom: -6px;
-    right: -7px;
+    font-size: 0.56rem;
+    padding: 1px 4px;
+    bottom: -5px;
+    right: -6px;
   }
 
   .pile-label {
-    font-size: 0.62rem;
+    font-size: 0.56rem;
   }
 
   .ceki-card {
-    width: clamp(29px, 3.9vw, 40px);
-    height: clamp(66px, 17dvh, 88px);
-    border-radius: 5px;
+    width: clamp(26px, 3.6vw, 36px);
+    height: clamp(50px, 13.5dvh, 70px);
+    border-radius: 4px;
     border-width: 1.5px;
   }
 
   .ceki-card--small {
-    width: 30px;
-    height: 68px;
+    width: 26px;
+    height: 58px;
+  }
+
+  .action-dock {
+    gap: 3px;
+  }
+
+  .btn-plaque {
+    padding: 3px 6px;
+    min-width: 70px;
+    gap: 4px;
+    border-radius: 8px;
+  }
+
+  .plaque-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .plaque-text strong {
+    font-size: 0.66rem;
+  }
+
+  .plaque-text small {
+    font-size: 0.5rem;
   }
 
   .player-discard-right {
-    min-width: 44px;
-    min-height: 74px;
-    padding: 3px 5px;
+    min-width: 38px;
+    min-height: 60px;
+    padding: 2px 4px;
   }
 
   .player-discard-right.is-large {
-    min-width: 58px;
-    min-height: 82px;
-    padding: 4px 6px;
+    min-width: 48px;
+    min-height: 66px;
+    padding: 2px 4px;
   }
 
   .player-discard-right.is-large .ceki-card {
-    width: 34px;
-    height: 76px;
+    width: 28px;
+    height: 60px;
   }
 
   .bottom-banners {
-    margin-bottom: 2px;
-    gap: 5px;
+    margin-bottom: 1px;
+    gap: 4px;
   }
 
   .turn-prompt,
   .nyaga-banner {
-    font-size: 0.64rem;
-    padding: 2px 8px;
+    font-size: 0.6rem;
+    padding: 2px 7px;
   }
 
   .btn-compact-ctrl {
-    padding: 2px 7px;
-    font-size: 0.62rem;
+    padding: 2px 6px;
+    font-size: 0.58rem;
   }
 
   .human-hand-row {
-    padding: 10px 2px 2px;
+    padding: 4px 2px 1px;
     gap: 2px;
+  }
+
+  .nyari-wow-banner {
+    top: 4px;
+    font-size: 0.64rem;
+    padding: 3px 10px;
   }
 
   .hand-meld-group {

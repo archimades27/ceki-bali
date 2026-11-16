@@ -281,8 +281,8 @@ const onlineHostPeer = new OnlineHostPeer((status, err) => {
   render();
 });
 
-function updateNetStatsBadge(): void {
-  const pill = document.getElementById('net-stats-pill');
+function updateNetStatsBadge(targetEl?: HTMLElement | null): void {
+  const pill = targetEl ?? document.getElementById('net-stats-pill');
   if (!pill) return;
   if (isHostingOnline()) {
     pill.textContent = `📡 Host • ${onlineHostPeer.connectedCount} Klien`;
@@ -987,7 +987,7 @@ function startRoundWithDeal(): void {
   if (isMultiplayer()) {
     if (isHostingLan()) {
       lanHost.startRound(customTurnSeconds);
-    } else if (lan.isHost) {
+    } else {
       sendGuestMessage({ type: 'start_round', turnSeconds: customTurnSeconds });
     }
     return;
@@ -1466,7 +1466,7 @@ function render(): void {
     netPill.id = 'net-stats-pill';
     netPill.className = 'net-stats-pill';
     hudLeft.append(netPill);
-    updateNetStatsBadge();
+    updateNetStatsBadge(netPill);
   }
 
   const hudRight = document.createElement('div');
@@ -1513,15 +1513,12 @@ function render(): void {
     render();
   });
 
-  const canStartNewRound = !isMultiplayer() || isHostingLan() || lan.isHost || onlineGuest.isHost;
+  const canStartNewRound = true;
   const newRoundBtn = document.createElement('button');
   newRoundBtn.className = 'btn btn-hud';
   newRoundBtn.dataset.focusId = 'new-round-btn';
   newRoundBtn.textContent = '↻ Babak Baru';
-  newRoundBtn.disabled = !canStartNewRound;
-  if (!canStartNewRound) {
-    newRoundBtn.title = 'Hanya Host yang bisa memulai babak baru LAN';
-  }
+  newRoundBtn.disabled = false;
   newRoundBtn.addEventListener('click', () => {
     startRoundWithDeal();
   });
@@ -2503,12 +2500,10 @@ function render(): void {
     if (isConnectedToRoom) {
       const startLanBtn = document.createElement('button');
       startLanBtn.className = 'btn btn-gold';
-      startLanBtn.disabled = !roomIsHost;
-      startLanBtn.textContent = roomIsHost
-        ? roomRoundActive
-          ? '↻ Mulai Babak Baru LAN'
-          : '▶ Mulai Main Bersama (LAN)'
-        : 'Menunggu Host Memulai…';
+      startLanBtn.disabled = false;
+      startLanBtn.textContent = roomRoundActive
+        ? '↻ Mulai Babak Baru LAN'
+        : '▶ Mulai Main Bersama (LAN)';
       startLanBtn.addEventListener('click', () => {
         lanMode = true;
         if (isHostingLan()) {
@@ -2582,7 +2577,6 @@ function render(): void {
     const isInOnlineRoom = isOnlineHost || isOnlineGuest;
     const onlineLobby = isOnlineHost ? (hostSnapshot?.lobby ?? []) : onlineGuest.lobby;
     const onlineMySeat = isOnlineHost ? 0 : onlineGuest.mySeat;
-    const onlineIsHost = isOnlineHost || onlineGuest.isHost;
     const onlineRoundActive = isOnlineHost
       ? Boolean(hostSnapshot?.roundActive)
       : onlineGuest.roundActive;
@@ -2768,12 +2762,10 @@ function render(): void {
     if (isInOnlineRoom) {
       const startOnlineBtn = document.createElement('button');
       startOnlineBtn.className = 'btn btn-gold';
-      startOnlineBtn.disabled = !onlineIsHost;
-      startOnlineBtn.textContent = onlineIsHost
-        ? onlineRoundActive
-          ? '↻ Mulai Babak Baru Online'
-          : '▶ Mulai Main Bersama (Online)'
-        : 'Menunggu Host Memulai…';
+      startOnlineBtn.disabled = false;
+      startOnlineBtn.textContent = onlineRoundActive
+        ? '↻ Mulai Babak Baru Online'
+        : '▶ Mulai Main Bersama (Online)';
       startOnlineBtn.addEventListener('click', () => {
         onlineMode = true;
         if (isHostingLan()) {
