@@ -25,7 +25,7 @@ import {
 } from './game/melds.ts';
 import type { CardInstance, GameState, Meld, MeldType } from './game/types.ts';
 import { sfx } from './ui/audio.ts';
-import { renderCardBack, renderClassicCard } from './ui/cardRenderer.ts';
+import { preloadCardAssets, renderCardBack, renderClassicCard } from './ui/cardRenderer.ts';
 import { DeckInputController } from './ui/gamepad.ts';
 import { LanClient, type RoomStatePayload } from './ui/lanClient.ts';
 import { LanHostController } from './ui/lanHost.ts';
@@ -51,6 +51,8 @@ let selectedMoveCardId: string | null = null;
 let draggedCardId: string | null = null;
 let botTimer: number | null = null;
 let cekiModalReady = true;
+let clientPendingAction = false;
+let clientPendingTimer: number | null = null;
 let knownMeldSignatures = new Set<string>();
 let lanMode = false;
 let lanModalOpen = false;
@@ -123,6 +125,11 @@ const animator = new MatchAnimator();
 function applyRoomPayload(payload: RoomStatePayload): void {
   const prevRound = state.round;
   cancelAllPending();
+  clientPendingAction = false;
+  if (clientPendingTimer !== null) {
+    window.clearTimeout(clientPendingTimer);
+    clientPendingTimer = null;
+  }
   state = payload.state;
   cekiModalReady = true;
   activeTurnDeadlineAt = payload.turnDeadlineAt ?? null;
@@ -538,7 +545,13 @@ function dispatchAction(action: GameAction): void {
       lanHost.handleLocalHostAction(mapped);
       return;
     }
-    if (!isGuestConnected() || !isGuestRoundActive()) return;
+    if (!isGuestConnected() || !isGuestRoundActive() || clientPendingAction) return;
+    clientPendingAction = true;
+    if (clientPendingTimer !== null) window.clearTimeout(clientPendingTimer);
+    clientPendingTimer = window.setTimeout(() => {
+      clientPendingAction = false;
+      render();
+    }, 1500);
     switch (action.type) {
       case 'draw_stock':
         sendGuestMessage({ type: 'draw_stock' });
@@ -2816,6 +2829,7 @@ function render(): void {
   }
 }
 
+preloadCardAssets();
 render();
 if (!startupOpen && !onlineModalOpen && !lanModalOpen) {
   scheduleBotTurnIfNeeded();

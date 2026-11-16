@@ -2850,3 +2850,18 @@ body {
   color: #fecaca;
   background: rgba(127, 29, 29, 0.75);
 }
+
+/* Touch / iPad GPU Optimization: remove heavy blur & 3D perspective overhead */
+@media (pointer: coarse) {
+  .modal-overlay,
+  .pending-spotlight {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .stock-stack,
+  .stock-stack:hover,
+  .table-surface::before {
+    transform: none !important;
+    filter: none !important;
+  }
+}

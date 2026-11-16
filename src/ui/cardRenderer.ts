@@ -1,5 +1,16 @@
-import { CARD_DEFS } from '../game/deck.ts';
+import { CARD_DEFS, CARD_DEFS_LIST } from '../game/deck.ts';
 import type { CardKey } from '../game/types.ts';
+
+let preloaded = false;
+export function preloadCardAssets(): void {
+  if (preloaded) return;
+  preloaded = true;
+  for (const def of CARD_DEFS_LIST) {
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = def.image;
+  }
+}
 
 export interface CardRenderOptions {
   selected?: boolean;
