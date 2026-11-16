@@ -888,7 +888,9 @@ function moveCardInHandById(fromId: string, toId: string): void {
 function attachHandCardInteractions(cardEl: HTMLElement, cardId: string, canDiscard: boolean): void {
   const locked = animator.isAnimating;
   const isTouchDevice = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
-  // Drag-and-drop reordering enabled on desktop mouse; touch devices use 'Atur Posisi' tap-to-swap
+  let suppressNextClick = false;
+
+  // Desktop: HTML5 drag-and-drop reordering without clicking any button
   cardEl.draggable = !locked && !isTouchDevice;
   if (!isTouchDevice) {
     cardEl.addEventListener('dragstart', (e) => {
@@ -924,6 +926,69 @@ function attachHandCardInteractions(cardEl: HTMLElement, cardId: string, canDisc
         moveCardInHandById(sourceId, cardId);
       }
     });
+  } else {
+    // Touch / Pen: direct drag-to-reorder without needing to toggle "Atur Posisi"
+    let startX = 0;
+    let startY = 0;
+    let isTouchDragging = false;
+    let lastHoverEl: HTMLElement | null = null;
+
+    cardEl.addEventListener('pointerdown', (e) => {
+      if (animator.isAnimating || e.pointerType === 'mouse') return;
+      startX = e.clientX;
+      startY = e.clientY;
+      isTouchDragging = false;
+      draggedCardId = cardId;
+    });
+
+    cardEl.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'mouse' || draggedCardId !== cardId) return;
+      const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+      if (!isTouchDragging && dist > 12) {
+        isTouchDragging = true;
+        cardEl.classList.add('is-dragging');
+      }
+      if (!isTouchDragging) return;
+      const under = document
+        .elementsFromPoint(e.clientX, e.clientY)
+        .find((el) => el instanceof HTMLElement && el.dataset.cardId && el.closest('.human-hand-row')) as
+        | HTMLElement
+        | undefined;
+      if (lastHoverEl && lastHoverEl !== under) {
+        lastHoverEl.classList.remove('is-drag-over');
+      }
+      if (under && under.dataset.cardId !== cardId) {
+        under.classList.add('is-drag-over');
+        lastHoverEl = under;
+      } else {
+        lastHoverEl = null;
+      }
+    });
+
+    const finishTouchDrag = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse' || draggedCardId !== cardId) return;
+      const wasDragging = isTouchDragging;
+      const targetId = lastHoverEl?.dataset.cardId ?? null;
+      if (lastHoverEl) {
+        lastHoverEl.classList.remove('is-drag-over');
+        lastHoverEl = null;
+      }
+      cardEl.classList.remove('is-dragging');
+      draggedCardId = null;
+      isTouchDragging = false;
+      if (wasDragging) {
+        suppressNextClick = true;
+        window.setTimeout(() => {
+          suppressNextClick = false;
+        }, 120);
+        if (targetId && targetId !== cardId) {
+          moveCardInHandById(cardId, targetId);
+        }
+      }
+    };
+
+    cardEl.addEventListener('pointerup', finishTouchDrag);
+    cardEl.addEventListener('pointercancel', finishTouchDrag);
   }
 
   // Click behavior: either Move Position (when moveMode is ON) or Discard (when canDiscard)
@@ -933,7 +998,7 @@ function attachHandCardInteractions(cardEl: HTMLElement, cardId: string, canDisc
       cardEl.classList.add('is-selected');
     }
     cardEl.addEventListener('click', () => {
-      if (animator.isAnimating) return;
+      if (suppressNextClick || animator.isAnimating) return;
       if (!selectedMoveCardId) {
         selectedMoveCardId = cardId;
         render();
@@ -947,7 +1012,10 @@ function attachHandCardInteractions(cardEl: HTMLElement, cardId: string, canDisc
       }
     });
   } else if (canDiscard) {
-    cardEl.addEventListener('click', () => handleHumanDiscard(cardId));
+    cardEl.addEventListener('click', () => {
+      if (suppressNextClick) return;
+      handleHumanDiscard(cardId);
+    });
   }
 }
 

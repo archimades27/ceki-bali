@@ -144,6 +144,8 @@ export function createDeck(): CardInstance[] {
 
 export function sortHand(cards: CardInstance[]): CardInstance[] {
   return [...cards].sort((a, b) => {
+    const famDiff = a.familyId - b.familyId;
+    if (famDiff !== 0) return famDiff;
     const suitDiff = SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit];
     if (suitDiff !== 0) return suitDiff;
     return a.rank - b.rank;

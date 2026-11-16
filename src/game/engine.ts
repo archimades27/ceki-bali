@@ -2,6 +2,7 @@ import { CARD_DEFS, createDeck, sortHand } from './deck.ts';
 import {
   checkWinWithCard,
   evaluateHandScore,
+  findBestPartialMelds,
   findWinningMelds,
   getNyagaWaits,
   getReadyStatus,
@@ -511,9 +512,12 @@ export function reorderHumanHand(
 }
 
 export function sortHumanHand(state: GameState, playerIndex = 0): GameState {
-  const updatedPlayers = state.players.map((p, idx) =>
-    idx === playerIndex ? { ...p, hand: sortHand(p.hand) } : p
-  );
+  const updatedPlayers = state.players.map((p, idx) => {
+    if (idx !== playerIndex) return p;
+    const grouped = findBestPartialMelds(p.hand, state.playStyle);
+    const ordered = [...grouped.melds.flatMap((m) => m.cards), ...grouped.leftover];
+    return { ...p, hand: ordered };
+  });
   return {
     ...state,
     players: updatedPlayers,

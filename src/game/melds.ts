@@ -125,6 +125,12 @@ function collectExactSolutions(
 /**
  * Finds the maximum number of disjoint 3-card melds in any hand (e.g. 11 cards).
  */
+const MELD_PRIORITY: Record<MeldType, number> = {
+  soca: 0,
+  lawang: 1,
+  serigat: 2,
+};
+
 export function findBestPartialMelds(
   cards: CardInstance[],
   playStyle: PlayStyle = 'nyari'
@@ -133,13 +139,23 @@ export function findBestPartialMelds(
   leftover: CardInstance[];
 } {
   const sorted = sortHand(cards);
-  return solvePartial(sorted, playStyle);
+  const res = solvePartial(sorted, playStyle);
+  const orderedMelds = [...res.melds].sort((a, b) => {
+    const pDiff = MELD_PRIORITY[a.type] - MELD_PRIORITY[b.type];
+    if (pDiff !== 0) return pDiff;
+    return (a.cards[0]?.familyId ?? 0) - (b.cards[0]?.familyId ?? 0);
+  });
+  return {
+    melds: orderedMelds,
+    leftover: sortHand(res.leftover),
+  };
 }
 
 function scoreMeldsForStyle(melds: Meld[], playStyle: PlayStyle): number {
   let score = 0;
   for (const m of melds) {
-    score += m.type === 'lawang' ? 96 : 100;
+    // Priority order: Soca > Lawang > Serigat
+    score += m.type === 'soca' ? 120 : m.type === 'lawang' ? 110 : 100;
     if (playStyle === 'soca' && m.type === 'soca') score += 35;
     if (playStyle === 'serigat' && m.type === 'serigat') score += 35;
   }
