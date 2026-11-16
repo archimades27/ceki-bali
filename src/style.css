@@ -1787,13 +1787,13 @@ body {
 
 .tutorial-modal,
 .win-modal {
-  background: var(--parchment);
-  color: var(--ink);
+  background: linear-gradient(165deg, rgba(24, 19, 17, 0.98), rgba(13, 10, 9, 0.99));
+  color: #f1f5f9;
   width: 100%;
   max-width: 640px;
-  border-radius: 18px;
-  border: 4px solid var(--teak-light);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+  border-radius: 16px;
+  border: 2px solid rgba(250, 204, 21, 0.55);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), 0 0 32px rgba(217, 119, 6, 0.14);
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
@@ -1809,49 +1809,52 @@ body {
 .tutorial-subtitle {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--terracotta);
+  color: #fbbf24;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .tutorial-title {
   margin: 2px 0 0;
-  font-size: 1.35rem;
+  font-size: 1.32rem;
+  color: #fef08a;
 }
 
 .btn-icon-close {
-  background: rgba(0, 0, 0, 0.08);
-  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(250, 204, 21, 0.35);
   width: 30px;
   height: 30px;
   border-radius: 50%;
   font-size: 1rem;
   cursor: pointer;
-  color: var(--ink);
+  color: #fef08a;
+  flex-shrink: 0;
 }
 
 .tutorial-progress {
   height: 6px;
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .tutorial-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #15803d, #eab308);
+  background: linear-gradient(90deg, #10b981, #facc15);
   transition: width 0.25s ease;
 }
 
 .tutorial-body {
   margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  color: #35271d;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  color: #e2e8f0;
 }
 
 .tutorial-showcase {
-  background: #14492e;
+  background: rgba(15, 45, 32, 0.72);
+  border: 1px solid rgba(52, 211, 153, 0.35);
   border-radius: 12px;
   padding: 12px 14px;
   color: #ecfdf5;
@@ -1886,12 +1889,12 @@ body {
 }
 
 .tutorial-tip {
-  background: rgba(234, 179, 8, 0.16);
-  border-left: 4px solid #ca8a04;
+  background: rgba(234, 179, 8, 0.14);
+  border-left: 4px solid #facc15;
   padding: 9px 12px;
   border-radius: 6px;
   font-size: 0.85rem;
-  color: #3f2e17;
+  color: #fef3c7;
 }
 
 .tutorial-footer {
@@ -1909,7 +1912,8 @@ body {
 }
 
 .win-meld-box {
-  background: #14492e;
+  background: rgba(15, 45, 32, 0.72);
+  border: 1px solid rgba(52, 211, 153, 0.32);
   border-radius: 10px;
   padding: 10px;
   display: flex;
@@ -2184,11 +2188,11 @@ body {
   z-index: 2200;
 }
 
-/* Multiplayer LAN Wi-Fi Modal (High-Contrast Ink on Parchment) */
+/* Unified Dark Obsidian & Gold Modal Controls (LAN, Online, Inspect) */
 .lan-modal {
   max-width: 540px;
   text-align: left;
-  color: var(--ink);
+  color: #f1f5f9;
 }
 
 .lan-modal-header {
@@ -2200,9 +2204,9 @@ body {
 
 .lan-desc {
   font-size: 0.84rem;
-  color: #3b2a1e;
-  line-height: 1.45;
-  margin: 6px 0 12px;
+  color: #cbd5e1;
+  line-height: 1.5;
+  margin: 4px 0 10px;
   font-weight: 500;
 }
 
@@ -2216,16 +2220,18 @@ body {
   flex: 1;
 }
 
-.lan-modal .btn-hud {
-  background: #2b180e;
-  color: #faf5e8;
-  border: 1.5px solid #78350f;
+.lan-modal .btn-hud,
+.lan-tab-btn {
+  background: rgba(255, 255, 255, 0.07);
+  color: #f1f5f9;
+  border: 1.5px solid rgba(250, 204, 21, 0.3);
 }
 
-.lan-modal .btn-hud.is-on {
+.lan-modal .btn-hud.is-on,
+.lan-tab-btn.is-active {
   background: linear-gradient(180deg, #fde047, #eab308);
   color: #1c1008;
-  border-color: #b45309;
+  border-color: #facc15;
   font-weight: 800;
 }
 
@@ -2235,60 +2241,78 @@ body {
   gap: 8px;
 }
 
+.lan-timer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: #fde68a;
+  font-weight: 600;
+}
+
+.lan-timer-input {
+  width: 90px !important;
+  text-align: center;
+}
+
 .lan-input {
   width: 100%;
   padding: 9px 12px;
   border-radius: 8px;
-  border: 1.5px solid #92400e;
-  background: #24130a;
-  color: #ffffff;
+  border: 1.5px solid rgba(250, 204, 21, 0.45);
+  background: #0b0e12;
+  color: #f8fafc;
   font-size: 0.88rem;
   font-weight: 600;
 }
 
 .lan-input::placeholder {
-  color: #cbbba6;
+  color: #94a3b8;
 }
 
 .lan-error {
   margin-top: 8px;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-radius: 8px;
-  background: #fee2e2;
-  border: 1.5px solid #dc2626;
-  color: #7f1d1d;
-  font-size: 0.8rem;
+  background: rgba(127, 29, 29, 0.85);
+  border: 1.5px solid #f87171;
+  color: #fee2e2;
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
-.lan-share-box {
+.lan-share-box,
+.lan-urls-box {
   margin-top: 10px;
   padding: 10px 12px;
-  border-radius: 8px;
-  background: #143624;
-  border: 1.5px solid #166534;
+  border-radius: 10px;
+  background: rgba(15, 45, 32, 0.72);
+  border: 1.5px solid rgba(52, 211, 153, 0.35);
   color: #ecfdf5;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   font-size: 0.78rem;
 }
 
-.lan-share-box code {
+.lan-share-box code,
+.lan-urls-box code {
   color: #fde047;
   font-weight: 800;
   font-size: 0.84rem;
   word-break: break-all;
 }
 
-.lan-share-row {
+.lan-share-row,
+.lan-url-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 4px 6px;
+  padding: 5px 8px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .btn-copy-url {
@@ -2314,40 +2338,46 @@ body {
   color: #052e16;
 }
 
-.lan-seats-list {
+.lan-seats-list,
+.lan-lobby-list {
   margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
-.lan-seat-item {
+.lan-seat-item,
+.lan-seat-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 7px 11px;
   border-radius: 8px;
-  background: rgba(36, 19, 10, 0.08);
-  border: 1px solid rgba(36, 19, 10, 0.16);
-  color: #1f1712;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f1f5f9;
   font-size: 0.82rem;
 }
 
-.lan-seat-item.is-me {
-  background: rgba(234, 179, 8, 0.28);
-  border: 1.5px solid #b45309;
+.lan-seat-item.is-me,
+.lan-seat-row.is-me {
+  background: rgba(234, 179, 8, 0.18);
+  border: 1.5px solid #facc15;
+  color: #fefce8;
 }
 
-.lan-seat-tag {
+.lan-seat-tag,
+.lan-seat-badge {
   font-size: 0.72rem;
-  color: #0f5132;
-  background: rgba(22, 101, 52, 0.15);
+  color: #a7f3d0;
+  background: rgba(16, 185, 129, 0.18);
   padding: 2px 9px;
   border-radius: 999px;
   font-weight: 700;
 }
 
-.lan-footer-actions {
+.lan-footer-actions,
+.lan-footer {
   margin-top: 14px;
   display: flex;
   flex-wrap: wrap;
@@ -2748,66 +2778,53 @@ body {
 }
 
 .startup-mode-btn {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  border: none;
-  padding: 0;
-  background: #0f1318;
-  border-radius: 10px;
-  overflow: hidden;
-  cursor: pointer;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
-}
-
-.startup-mode-btn:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 14px 34px rgba(250, 204, 21, 0.35);
-  filter: brightness(1.08);
-}
-
-.startup-card-art {
-  width: 100%;
-  aspect-ratio: 2 / 3;
-  max-height: 215px;
-  background-size: 100% 100%;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-.startup-mode-btn.is-offline .startup-card-art {
-  background-image: url('./assets/mode-offline.jpg');
-}
-
-.startup-mode-btn.is-online .startup-card-art {
-  background-image: url('./assets/mode-online.jpg');
-}
-
-.startup-mode-btn.is-lan .startup-card-art {
-  background-image: url('./assets/mode-lan.jpg');
-}
-
-.startup-card-label {
-  width: 100%;
-  padding: 8px 6px 10px;
-  background: linear-gradient(180deg, rgba(16, 18, 22, 0.96), rgba(9, 10, 13, 0.99));
-  border-top: 1.5px solid rgba(250, 204, 21, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  gap: 5px;
+  padding: 20px 14px;
+  border: 1.5px solid rgba(250, 204, 21, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(165deg, rgba(24, 28, 36, 0.94), rgba(13, 15, 20, 0.98));
+  color: #f8fafc;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease;
 }
 
-.startup-card-label strong {
-  font-size: 0.9rem;
+.startup-mode-btn strong {
+  font-size: 1.05rem;
   letter-spacing: 0.06em;
   color: #fef08a;
 }
 
-.startup-card-label small {
-  font-size: 0.7rem;
+.startup-mode-btn small {
+  font-size: 0.76rem;
   color: #cbd5e1;
+  line-height: 1.3;
+}
+
+.startup-mode-btn.is-offline {
+  border-color: rgba(74, 222, 128, 0.55);
+  background: linear-gradient(165deg, rgba(16, 56, 36, 0.92), rgba(10, 28, 20, 0.98));
+}
+
+.startup-mode-btn.is-online {
+  border-color: rgba(56, 189, 248, 0.6);
+  background: linear-gradient(165deg, rgba(14, 48, 76, 0.92), rgba(10, 24, 42, 0.98));
+}
+
+.startup-mode-btn.is-lan {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: linear-gradient(165deg, rgba(72, 42, 16, 0.92), rgba(34, 20, 9, 0.98));
+}
+
+.startup-mode-btn:hover {
+  transform: translateY(-3px);
+  border-color: #fde047;
+  box-shadow: 0 12px 30px rgba(250, 204, 21, 0.3);
 }
 
 .startup-mode-text {
@@ -2898,17 +2915,15 @@ body {
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
   }
-  .startup-card-art {
-    max-height: 98px;
+  .startup-mode-btn {
+    padding: 12px 8px;
+    gap: 3px;
   }
-  .startup-card-label {
-    padding: 4px 4px 5px;
+  .startup-mode-btn strong {
+    font-size: 0.82rem;
   }
-  .startup-card-label strong {
-    font-size: 0.72rem;
-  }
-  .startup-card-label small {
-    font-size: 0.58rem;
+  .startup-mode-btn small {
+    font-size: 0.64rem;
   }
   .startup-guide-btn {
     padding: 3px 10px;

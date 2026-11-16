@@ -1412,11 +1412,8 @@ function render(): void {
     const offlineBtn = document.createElement('button');
     offlineBtn.className = 'startup-mode-btn is-offline';
     offlineBtn.innerHTML = `
-      <div class="startup-card-art"></div>
-      <div class="startup-card-label">
-        <strong>PLAY OFFLINE</strong>
-        <small>Solo vs 4 Bot AI</small>
-      </div>
+      <strong>PLAY OFFLINE</strong>
+      <small>Solo melawan 4 Bot AI</small>
     `;
     offlineBtn.addEventListener('click', () => {
       startupOpen = false;
@@ -1430,11 +1427,8 @@ function render(): void {
     const onlineBtn = document.createElement('button');
     onlineBtn.className = 'startup-mode-btn is-online';
     onlineBtn.innerHTML = `
-      <div class="startup-card-art"></div>
-      <div class="startup-card-label">
-        <strong>PLAY ONLINE</strong>
-        <small>Room Kode &amp; Link</small>
-      </div>
+      <strong>PLAY ONLINE</strong>
+      <small>Buat Room Kode atau Gabung Link</small>
     `;
     onlineBtn.addEventListener('click', () => {
       startupOpen = false;
@@ -1446,11 +1440,8 @@ function render(): void {
     const lanBtnStart = document.createElement('button');
     lanBtnStart.className = 'startup-mode-btn is-lan';
     lanBtnStart.innerHTML = `
-      <div class="startup-card-art"></div>
-      <div class="startup-card-label">
-        <strong>PLAY LAN</strong>
-        <small>Wi-Fi Lokal</small>
-      </div>
+      <strong>PLAY LAN</strong>
+      <small>Main Bersama di Wi-Fi Lokal</small>
     `;
     lanBtnStart.addEventListener('click', () => {
       startupOpen = false;
