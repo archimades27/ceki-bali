@@ -76,8 +76,13 @@ assert.ok(waits.includes('old_thousand'), 'Should detect old_thousand as Nyari w
 
 function startRoundAtSeat0() {
   const s = startNewRound(undefined, 'nyari');
+  const opening = s.players.flatMap((p) => p.discards)[0];
   return {
     ...s,
+    players: s.players.map((p, idx) => ({
+      ...p,
+      discards: idx === 4 && opening ? [opening] : [],
+    })),
     currentPlayerIndex: 0,
     phase: 'awaiting_draw' as const,
     botStep: null,

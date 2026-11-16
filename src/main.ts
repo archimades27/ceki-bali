@@ -2303,11 +2303,11 @@ scheduleBotTurnIfNeeded();
 
 // Auto-connect Guests when opened from a LAN Host URL (e.g. http://192.168.x.x:4173/)
 let autoJoinedLan = false;
-if (window.location.protocol.startsWith('http') && window.location.host) {
-  const isLanGuestUrl =
-    window.location.hostname !== '127.0.0.1' &&
-    window.location.hostname !== 'localhost';
-  if (isLanGuestUrl || window.location.port === '4173') {
+if (window.location.protocol === 'http:' && window.location.host) {
+  const host = window.location.hostname;
+  const isPrivateLanHost =
+    /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\.|100\.)/.test(host) || host.endsWith('.local');
+  if (isPrivateLanHost || window.location.port === '4173') {
     autoJoinedLan = true;
     fetch('/api/lan-info')
       .then((r) => (r.ok ? r.json() : null))
