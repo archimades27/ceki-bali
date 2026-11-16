@@ -2945,9 +2945,12 @@ body {
     -webkit-backdrop-filter: none !important;
   }
   .stock-stack,
-  .stock-stack:hover,
-  .table-surface::before {
+  .stock-stack:hover {
     transform: none !important;
+    filter: none !important;
+  }
+  .table-surface::before {
+    transform: translate(-50%, -50%) !important;
     filter: none !important;
   }
 }
