@@ -2207,7 +2207,7 @@ function render(): void {
   deckCluster.append(handRow);
 
   dock.append(drawBtn, ngejukBtn, cekiBtn);
-  bottomRow.append(dock, deckCluster, humanDiscardWrap);
+  bottomRow.append(humanDiscardWrap, deckCluster, dock);
   bottom.appendChild(bottomRow);
 
   table.appendChild(bottom);
