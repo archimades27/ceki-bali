@@ -1,0 +1,18 @@
+{
+  "name": "ceki-bali",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline 2D Balinese Ceki card game with AI bots and interactive tutorial",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lan": "npm run build && node --experimental-strip-types server/lanServer.ts",
+    "test": "node --experimental-strip-types tests/melds.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0"
+  }
+}
