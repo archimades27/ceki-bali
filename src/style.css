@@ -1470,7 +1470,8 @@ body {
 .ceki-card img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #ffffff;
   display: block;
 }
 
@@ -2407,8 +2408,8 @@ body {
 
   .table-surface {
     grid-template-columns: minmax(90px, 1fr) auto minmax(90px, 1fr);
-    grid-template-rows: 38px 1fr 98px;
-    padding: 2px 4px;
+    grid-template-rows: 34px 1fr 96px;
+    padding: 2px 4px max(8px, env(safe-area-inset-bottom));
     gap: 2px;
   }
 
@@ -2504,8 +2505,8 @@ body {
   }
 
   .ceki-card {
-    width: clamp(26px, 3.6vw, 36px);
-    height: clamp(50px, 13.5dvh, 70px);
+    width: clamp(24px, 3.1vw, 32px);
+    height: clamp(54px, 14.5dvh, 72px);
     border-radius: 0;
     border-width: 1.5px;
   }
@@ -2572,8 +2573,13 @@ body {
     font-size: 0.58rem;
   }
 
+  .seat-bottom {
+    padding-bottom: 6px;
+  }
+
   .human-hand-row {
-    padding: 4px 2px 1px;
+    align-items: center;
+    padding: 2px 2px 4px;
     gap: 2px;
   }
 
