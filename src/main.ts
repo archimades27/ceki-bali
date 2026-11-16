@@ -281,6 +281,37 @@ const onlineHostPeer = new OnlineHostPeer((status, err) => {
   render();
 });
 
+async function toggleFullscreen(): Promise<void> {
+  const doc = document as Document & {
+    webkitFullscreenElement?: Element | null;
+    webkitExitFullscreen?: () => Promise<void> | void;
+  };
+  const root = document.documentElement as HTMLElement & {
+    webkitRequestFullscreen?: () => Promise<void> | void;
+  };
+  const isFs = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
+  try {
+    if (isFs) {
+      if (doc.exitFullscreen) await doc.exitFullscreen();
+      else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+      return;
+    }
+    if (root.requestFullscreen) {
+      await root.requestFullscreen();
+      return;
+    }
+    if (root.webkitRequestFullscreen) {
+      root.webkitRequestFullscreen();
+      return;
+    }
+  } catch {
+    // Fall through to iOS PWA tip
+  }
+  window.alert(
+    'Untuk Fullscreen penuh tanpa bar Safari di iPhone/iPad:\n1. Ketuk ikon Bagikan (⬆️) di Safari\n2. Pilih "Tambah ke Layar Utama" (Add to Home Screen)\n3. Buka Ceki Bali dari ikon di Layar Utama!'
+  );
+}
+
 function updateNetStatsBadge(targetEl?: HTMLElement | null): void {
   const pill = targetEl ?? document.getElementById('net-stats-pill');
   if (!pill) return;
@@ -1570,7 +1601,15 @@ function render(): void {
     settingsWrap.appendChild(menu);
   }
 
-  hudRight.append(menuBtn, onlineHudBtn, lanBtn, historyBtn, newRoundBtn, settingsWrap, helpBtn);
+  const fsBtn = document.createElement('button');
+  fsBtn.className = 'btn btn-hud';
+  fsBtn.textContent = '⛶ Full';
+  fsBtn.title = 'Mode Layar Penuh (Fullscreen)';
+  fsBtn.addEventListener('click', () => {
+    void toggleFullscreen();
+  });
+
+  hudRight.append(menuBtn, onlineHudBtn, lanBtn, historyBtn, newRoundBtn, fsBtn, settingsWrap, helpBtn);
   hud.append(hudLeft, hudRight);
   app.appendChild(hud);
 

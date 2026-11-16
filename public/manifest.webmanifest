@@ -1,0 +1,19 @@
+{
+  "name": "Ceki Bali",
+  "short_name": "Ceki Bali",
+  "description": "Permainan kartu tradisional Bali 5 pemain (Solo, Online & LAN)",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "theme_color": "#1a0d06",
+  "background_color": "#1a0d06",
+  "icons": [
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

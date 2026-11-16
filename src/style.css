@@ -2452,15 +2452,15 @@ body {
   }
 
   .seat-left {
-    transform: scale(0.6) translate(92px, 4px);
+    transform: scale(0.6) translate(106px, 8px);
   }
 
   .seat-right {
-    transform: scale(0.6) translate(-6px, 4px);
+    transform: scale(0.6) translate(-6px, 8px);
   }
 
   .center-arena {
-    top: 43%;
+    top: 38%;
   }
 
   .table-surface.has-pending .center-arena {
