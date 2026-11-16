@@ -2,6 +2,14 @@ import Peer, { type DataConnection } from 'peerjs';
 import type { LobbySeatInfo, RoomStatePayload } from './lanClient.ts';
 import type { LanHostController } from './lanHost.ts';
 
+const PEER_ICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+  ],
+};
+
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export function generateRoomCode(len = 5): string {
@@ -43,7 +51,7 @@ export class OnlineHostPeer {
     const peerId = `ceki-bali-${this.roomCode}`;
     this.onStatusChange('starting');
 
-    const peer = new Peer(peerId);
+    const peer = new Peer(peerId, { config: PEER_ICE_CONFIG });
     this.peer = peer;
 
     peer.on('open', () => {
@@ -182,13 +190,16 @@ export class OnlineGuestClient {
     this.errorMessage = null;
     this.onStatusChange();
 
-    const peer = new Peer();
+    const peer = new Peer({ config: PEER_ICE_CONFIG });
     this.peer = peer;
     let opened = false;
 
     peer.on('open', () => {
       if (this.peer !== peer) return;
-      const conn = peer.connect(`ceki-bali-${code}`, { reliable: true });
+      const conn = peer.connect(`ceki-bali-${code}`, {
+        reliable: true,
+        serialization: 'json',
+      });
       this.conn = conn;
 
       const timeout = window.setTimeout(() => {

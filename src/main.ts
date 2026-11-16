@@ -425,6 +425,7 @@ function scheduleBotTurnIfNeeded(): void {
     window.clearTimeout(botTimer);
     botTimer = null;
   }
+  if (startupOpen || onlineModalOpen || lanModalOpen || isMultiplayer()) return;
 
   const current = state.players[state.currentPlayerIndex];
   if (state.phase === 'bot_thinking' && state.botStep === 'draw' && !current.isHuman) {
@@ -456,6 +457,7 @@ function scheduleBotDiscardStep(): void {
     window.clearTimeout(botTimer);
     botTimer = null;
   }
+  if (startupOpen || onlineModalOpen || lanModalOpen || isMultiplayer()) return;
   const bot = state.players[state.currentPlayerIndex];
   if (!bot || bot.isHuman || state.phase !== 'bot_thinking' || state.botStep !== 'discard') return;
 
@@ -802,41 +804,44 @@ function moveCardInHandById(fromId: string, toId: string): void {
 
 function attachHandCardInteractions(cardEl: HTMLElement, cardId: string, canDiscard: boolean): void {
   const locked = animator.isAnimating;
-  // Drag-and-drop reordering enabled when not animating
-  cardEl.draggable = !locked;
-  cardEl.addEventListener('dragstart', (e) => {
-    if (animator.isAnimating) {
+  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+  // Drag-and-drop reordering enabled on desktop mouse; touch devices use 'Atur Posisi' tap-to-swap
+  cardEl.draggable = !locked && !isTouchDevice;
+  if (!isTouchDevice) {
+    cardEl.addEventListener('dragstart', (e) => {
+      if (animator.isAnimating) {
+        e.preventDefault();
+        return;
+      }
+      draggedCardId = cardId;
+      cardEl.classList.add('is-dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', cardId);
+      }
+    });
+    cardEl.addEventListener('dragend', () => {
+      draggedCardId = null;
+      cardEl.classList.remove('is-dragging');
+    });
+    cardEl.addEventListener('dragover', (e) => {
+      if (animator.isAnimating || !draggedCardId || draggedCardId === cardId) return;
       e.preventDefault();
-      return;
-    }
-    draggedCardId = cardId;
-    cardEl.classList.add('is-dragging');
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', cardId);
-    }
-  });
-  cardEl.addEventListener('dragend', () => {
-    draggedCardId = null;
-    cardEl.classList.remove('is-dragging');
-  });
-  cardEl.addEventListener('dragover', (e) => {
-    if (animator.isAnimating || !draggedCardId || draggedCardId === cardId) return;
-    e.preventDefault();
-    cardEl.classList.add('is-drag-over');
-  });
-  cardEl.addEventListener('dragleave', () => {
-    cardEl.classList.remove('is-drag-over');
-  });
-  cardEl.addEventListener('drop', (e) => {
-    e.preventDefault();
-    cardEl.classList.remove('is-drag-over');
-    if (animator.isAnimating) return;
-    const sourceId = draggedCardId || e.dataTransfer?.getData('text/plain');
-    if (sourceId && sourceId !== cardId) {
-      moveCardInHandById(sourceId, cardId);
-    }
-  });
+      cardEl.classList.add('is-drag-over');
+    });
+    cardEl.addEventListener('dragleave', () => {
+      cardEl.classList.remove('is-drag-over');
+    });
+    cardEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      cardEl.classList.remove('is-drag-over');
+      if (animator.isAnimating) return;
+      const sourceId = draggedCardId || e.dataTransfer?.getData('text/plain');
+      if (sourceId && sourceId !== cardId) {
+        moveCardInHandById(sourceId, cardId);
+      }
+    });
+  }
 
   // Click behavior: either Move Position (when moveMode is ON) or Discard (when canDiscard)
   if (moveMode) {
@@ -894,7 +899,7 @@ function clearSoloTurnTimer(): void {
 
 function resetSoloTurnTimer(): void {
   clearSoloTurnTimer();
-  if (isMultiplayer()) return;
+  if (startupOpen || onlineModalOpen || lanModalOpen || isMultiplayer()) return;
   if (state.phase === 'round_over' || state.currentPlayerIndex !== 0 || customTurnSeconds <= 0) {
     activeTurnDeadlineAt = null;
     return;
@@ -932,7 +937,7 @@ function updateTurnTimerBadge(): void {
   pill.classList.toggle('is-urgent', sec <= 5);
 }
 
-window.setInterval(updateTurnTimerBadge, 250);
+window.setInterval(updateTurnTimerBadge, 1000);
 
 function startRoundWithDeal(): void {
   if (isMultiplayer()) {
@@ -1625,7 +1630,7 @@ function render(): void {
   if (!hasPendingCard || canCeki) {
     statusBanners.appendChild(turnPrompt);
   }
-  if (!isMultiplayer()) {
+  if (!isMultiplayer() && !startupOpen && !onlineModalOpen && !lanModalOpen) {
     if (isHumanTurn && state.phase !== 'round_over' && customTurnSeconds > 0 && soloTurnTimer === null) {
       resetSoloTurnTimer();
     } else if (!isHumanTurn || state.phase === 'round_over') {
@@ -2776,7 +2781,9 @@ function render(): void {
 }
 
 render();
-scheduleBotTurnIfNeeded();
+if (!startupOpen && !onlineModalOpen && !lanModalOpen) {
+  scheduleBotTurnIfNeeded();
+}
 
 // Auto-open Online Join modal if URL has ?room=CODE, or auto-connect LAN Guest on private LAN URL
 let autoJoinedLan = false;

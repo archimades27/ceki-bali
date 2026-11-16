@@ -280,6 +280,7 @@ export class LanHostController {
 
     return {
       ...this.state,
+      history: this.state.history.slice(-30),
       stock: this.state.stock.map((_, i) => hiddenCard(i, 99)),
       pendingDrawnCard:
         this.state.currentPlayerIndex === viewerSeat ? this.state.pendingDrawnCard : null,

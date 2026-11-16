@@ -2801,3 +2801,20 @@ body {
     gap: 6px;
   }
 }
+
+/* iPad / Touch Performance & Instant Tap */
+.ceki-card,
+.btn,
+.btn-plaque,
+.stock-stack,
+.discard-inspect-btn,
+.startup-mode-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ceki-card img {
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
+}
