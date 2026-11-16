@@ -2391,13 +2391,13 @@ body {
   }
 
   .hud-right {
-    gap: 3px;
+    gap: 2px;
   }
 
   .hud-right .btn {
-    padding: 2px 6px;
-    font-size: 0.62rem;
-    border-radius: 6px;
+    padding: 2px 5px;
+    font-size: 0.58rem;
+    border-radius: 5px;
     white-space: nowrap;
     flex-shrink: 0;
   }
@@ -2408,8 +2408,8 @@ body {
 
   .table-surface {
     grid-template-columns: minmax(90px, 1fr) auto minmax(90px, 1fr);
-    grid-template-rows: 34px 1fr 96px;
-    padding: 2px 4px max(8px, env(safe-area-inset-bottom));
+    grid-template-rows: 34px 1fr auto;
+    padding: 2px 4px max(10px, env(safe-area-inset-bottom));
     gap: 2px;
   }
 
@@ -2506,7 +2506,9 @@ body {
 
   .ceki-card {
     width: clamp(24px, 3.1vw, 32px);
-    height: clamp(54px, 14.5dvh, 72px);
+    height: auto;
+    aspect-ratio: 120 / 259;
+    max-height: 66px;
     border-radius: 0;
     border-width: 1.5px;
   }
