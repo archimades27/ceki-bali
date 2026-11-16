@@ -2681,114 +2681,132 @@ body {
   }
 }
 
-/* Startup Page */
+/* Startup Page with Ornate Balinese Frame & 3 Fantasy Mode Cards */
 .startup-screen {
   min-height: 100dvh;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  background: radial-gradient(circle at 50% 35%, rgba(92, 52, 24, 0.72), rgba(20, 10, 4, 0.96));
+  padding: 16px;
+  background: radial-gradient(circle at 50% 40%, #1c2229 0%, #0a0c10 100%);
 }
 
 .startup-card {
   width: 100%;
-  max-width: 540px;
-  background: linear-gradient(160deg, rgba(48, 26, 14, 0.96), rgba(26, 13, 6, 0.98));
-  border: 2px solid rgba(250, 204, 21, 0.45);
-  border-radius: 24px;
-  padding: 28px 26px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.75), 0 0 40px rgba(217, 119, 6, 0.16);
+  max-width: 820px;
+  background: url('./assets/startup-frame.jpg') center / 100% 100% no-repeat;
+  padding: 54px 72px 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   text-align: center;
-}
-
-.startup-emblem {
-  font-size: 2.6rem;
-  line-height: 1;
-  filter: drop-shadow(0 4px 12px rgba(250, 204, 21, 0.35));
+  filter: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.85));
 }
 
 .startup-title {
   margin: 0;
-  font-size: 2rem;
-  letter-spacing: 0.08em;
+  font-size: 1.85rem;
+  letter-spacing: 0.1em;
   color: #fef08a;
-  text-shadow: 0 2px 14px rgba(245, 158, 11, 0.4);
+  text-shadow: 0 2px 14px rgba(245, 158, 11, 0.55);
 }
 
 .startup-subtitle {
   margin: 0;
-  font-size: 0.88rem;
-  color: #e7dcc8;
-  opacity: 0.88;
+  font-size: 0.82rem;
+  color: #cbd5e1;
 }
 
 .startup-name-row {
   width: 100%;
+  max-width: 380px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  text-align: left;
+  align-items: center;
+  gap: 10px;
 }
 
 .startup-name-label {
   font-size: 0.78rem;
   font-weight: 700;
   color: #fde68a;
+  white-space: nowrap;
+}
+
+.startup-name-input {
+  flex: 1;
+  padding: 6px 10px;
 }
 
 .startup-modes {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 4px;
 }
 
 .startup-mode-btn {
-  width: 100%;
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
-  border-radius: 16px;
-  border: 1.5px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
-  color: #fefce8;
+  flex-direction: column;
+  border: none;
+  padding: 0;
+  background: #0f1318;
+  border-radius: 10px;
+  overflow: hidden;
   cursor: pointer;
-  text-align: left;
-  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
 
 .startup-mode-btn:hover {
-  transform: translateY(-2px);
-  border-color: #facc15;
-  background: rgba(250, 204, 21, 0.14);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 14px 34px rgba(250, 204, 21, 0.35);
+  filter: brightness(1.08);
 }
 
-.startup-mode-btn.is-offline {
-  border-color: rgba(74, 222, 128, 0.45);
-  background: linear-gradient(135deg, rgba(22, 101, 52, 0.48), rgba(20, 83, 45, 0.35));
+.startup-card-art {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  max-height: 250px;
+  background-size: cover;
+  background-position: center;
 }
 
-.startup-mode-btn.is-online {
-  border-color: rgba(56, 189, 248, 0.5);
-  background: linear-gradient(135deg, rgba(3, 105, 161, 0.48), rgba(12, 74, 110, 0.35));
+.startup-mode-btn.is-offline .startup-card-art {
+  background-image: url('./assets/mode-offline.jpg');
 }
 
-.startup-mode-btn.is-lan {
-  border-color: rgba(251, 191, 36, 0.45);
-  background: linear-gradient(135deg, rgba(146, 64, 14, 0.48), rgba(120, 53, 15, 0.35));
+.startup-mode-btn.is-online .startup-card-art {
+  background-image: url('./assets/mode-online.jpg');
 }
 
-.startup-mode-icon {
-  font-size: 1.75rem;
-  flex-shrink: 0;
+.startup-mode-btn.is-lan .startup-card-art {
+  background-image: url('./assets/mode-lan.jpg');
+}
+
+.startup-card-label {
+  width: 100%;
+  padding: 8px 6px 10px;
+  background: linear-gradient(180deg, rgba(16, 18, 22, 0.96), rgba(9, 10, 13, 0.99));
+  border-top: 1.5px solid rgba(250, 204, 21, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.startup-card-label strong {
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  color: #fef08a;
+}
+
+.startup-card-label small {
+  font-size: 0.7rem;
+  color: #cbd5e1;
 }
 
 .startup-mode-text {
@@ -2862,29 +2880,38 @@ body {
 
 @media (max-height: 520px) and (orientation: landscape) {
   .startup-screen {
-    padding: 8px 16px;
+    padding: 4px 12px;
   }
   .startup-card {
-    max-width: 680px;
-    padding: 14px 18px;
-    gap: 10px;
-  }
-  .startup-emblem {
-    display: none;
+    max-width: 660px;
+    padding: 24px 44px 22px;
+    gap: 6px;
   }
   .startup-title {
-    font-size: 1.35rem;
+    font-size: 1.15rem;
+  }
+  .startup-subtitle {
+    display: none;
   }
   .startup-modes {
-    display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    gap: 10px;
   }
-  .startup-mode-btn {
-    padding: 10px 10px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
+  .startup-card-art {
+    max-height: 112px;
+  }
+  .startup-card-label {
+    padding: 4px 4px 5px;
+  }
+  .startup-card-label strong {
+    font-size: 0.72rem;
+  }
+  .startup-card-label small {
+    font-size: 0.58rem;
+  }
+  .startup-guide-btn {
+    padding: 3px 10px;
+    font-size: 0.68rem;
   }
 }
 

@@ -1386,7 +1386,6 @@ function render(): void {
     card.className = 'startup-card';
 
     card.innerHTML = `
-      <div class="startup-emblem">🎴</div>
       <h1 class="startup-title">CEKI BALI</h1>
       <p class="startup-subtitle">Permainan Kartu Tradisional Bali • 5 Pemain (Soca • Serigat • Lawang)</p>
     `;
@@ -1395,9 +1394,9 @@ function render(): void {
     nameRow.className = 'startup-name-row';
     const nameLbl = document.createElement('label');
     nameLbl.className = 'startup-name-label';
-    nameLbl.textContent = 'Nama Pemain Anda';
+    nameLbl.textContent = 'Nama Pemain:';
     const nameInput = document.createElement('input');
-    nameInput.className = 'lan-input';
+    nameInput.className = 'lan-input startup-name-input';
     nameInput.maxLength = 16;
     nameInput.value = savedPlayerName;
     nameInput.placeholder = 'Masukkan nama Anda…';
@@ -1413,11 +1412,11 @@ function render(): void {
     const offlineBtn = document.createElement('button');
     offlineBtn.className = 'startup-mode-btn is-offline';
     offlineBtn.innerHTML = `
-      <span class="startup-mode-icon">🤖</span>
-      <span class="startup-mode-text">
-        <strong>Play Offline</strong>
-        <small>Solo melawan 4 Bot AI di meja kayu</small>
-      </span>
+      <div class="startup-card-art"></div>
+      <div class="startup-card-label">
+        <strong>PLAY OFFLINE</strong>
+        <small>Solo vs 4 Bot AI</small>
+      </div>
     `;
     offlineBtn.addEventListener('click', () => {
       startupOpen = false;
@@ -1431,11 +1430,11 @@ function render(): void {
     const onlineBtn = document.createElement('button');
     onlineBtn.className = 'startup-mode-btn is-online';
     onlineBtn.innerHTML = `
-      <span class="startup-mode-icon">🌍</span>
-      <span class="startup-mode-text">
-        <strong>Play Online</strong>
-        <small>Buat Room Online / Gabung Kode &amp; Link Undangan</small>
-      </span>
+      <div class="startup-card-art"></div>
+      <div class="startup-card-label">
+        <strong>PLAY ONLINE</strong>
+        <small>Room Kode &amp; Link</small>
+      </div>
     `;
     onlineBtn.addEventListener('click', () => {
       startupOpen = false;
@@ -1447,11 +1446,11 @@ function render(): void {
     const lanBtnStart = document.createElement('button');
     lanBtnStart.className = 'startup-mode-btn is-lan';
     lanBtnStart.innerHTML = `
-      <span class="startup-mode-icon">📡</span>
-      <span class="startup-mode-text">
-        <strong>Play LAN</strong>
-        <small>Main bersama teman dalam 1 Wi-Fi lokal</small>
-      </span>
+      <div class="startup-card-art"></div>
+      <div class="startup-card-label">
+        <strong>PLAY LAN</strong>
+        <small>Wi-Fi Lokal</small>
+      </div>
     `;
     lanBtnStart.addEventListener('click', () => {
       startupOpen = false;
