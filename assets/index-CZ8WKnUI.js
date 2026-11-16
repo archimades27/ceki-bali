@@ -100,7 +100,7 @@ ${b}`}class ae extends Error{constructor({message:e,code:n,cause:s,name:r}){var 
       <strong>Ceki!</strong>
       <small>Ngenen</small>
     </span>
-  `,Mt.addEventListener("click",Qi);const Rs=document.createElement("div");if(Rs.className="human-deck-cluster",Rs.append(jt),As.append(Dt,Bt,Mt),ks.append(As,Rs,Cs),ln.appendChild(ks),ct.appendChild(ln),an.appendChild(ct),xn.appendChild(an),Rt){const w=document.createElement("aside");w.className="history-sidebar";const k=document.createElement("div");k.className="history-sidebar-header",k.innerHTML=`
+  `,Mt.addEventListener("click",Qi);const Rs=document.createElement("div");if(Rs.className="human-deck-cluster",Rs.append(jt),As.append(Dt,Bt,Mt),ks.append(Cs,Rs,As),ln.appendChild(ks),ct.appendChild(ln),an.appendChild(ct),xn.appendChild(an),Rt){const w=document.createElement("aside");w.className="history-sidebar";const k=document.createElement("div");k.className="history-sidebar-header",k.innerHTML=`
       <span>📜 Riwayat Meja (${g.history.length})</span>
       <button class="btn-icon-close btn-side-close" title="Sembunyikan riwayat">✕</button>
     `,(br=k.querySelector(".btn-side-close"))==null||br.addEventListener("click",()=>{Rt=!1,x()});const R=document.createElement("div");R.className="history-sidebar-list";const L=[...g.history].reverse();for(const C of L){const I=document.createElement("div");I.className=`history-row ${C.actor==="Anda"?"is-human":C.actor==="Sistem"?"is-system":""}`,I.innerHTML=`
