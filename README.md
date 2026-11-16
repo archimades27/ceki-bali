@@ -2,6 +2,9 @@
 
 Permainan kartu tradisional **Ceki Bali** 5 pemain dengan dukungan **Solo vs Bot** dan **LAN Multiplayer** (Web, macOS, Windows, Steam Deck, dan Mobile Landscape).
 
+🎮 **Main Langsung di Browser**: https://archimades27.github.io/ceki-bali/  
+📦 **Download Installer (macOS / Windows / Steam Deck)**: [Releases v1.0.0](https://github.com/archimades27/ceki-bali/releases/tag/v1.0.0)
+
 ![Ceki Bali Tabletop](docs/screenshot.png)
 
 ## Fitur Utama
