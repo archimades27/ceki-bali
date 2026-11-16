@@ -1,14 +1,23 @@
-import Peer, { type DataConnection } from 'peerjs';
+import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
 import type { LobbySeatInfo, RoomStatePayload } from './lanClient.ts';
 import type { LanHostController } from './lanHost.ts';
 
-const PEER_ICE_CONFIG = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' },
-  ],
-};
+const SUPABASE_URL = 'https://uooxjqoovavromnkweyc.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_bo0860ZkBjIa1SmE6E0_TQ_kj1YRpjt';
+
+let sharedClient: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (!sharedClient) {
+    sharedClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      realtime: {
+        params: {
+          eventsPerSecond: 30,
+        },
+      },
+    });
+  }
+  return sharedClient;
+}
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -28,8 +37,8 @@ export function extractRoomCode(input: string): string {
 }
 
 export class OnlineHostPeer {
-  private peer: Peer | null = null;
-  private conns = new Map<string, DataConnection>();
+  private channel: RealtimeChannel | null = null;
+  private activeGuests = new Set<string>();
   public roomCode = '';
   public inviteUrl = '';
   public status: 'stopped' | 'starting' | 'running' | 'error' = 'stopped';
@@ -43,124 +52,135 @@ export class OnlineHostPeer {
     this.onStatusChange = onStatusChange;
   }
 
-  start(hostName: string, hostController: LanHostController, retryCount = 0): void {
+  get connectedCount(): number {
+    return this.activeGuests.size;
+  }
+
+  start(hostName: string, hostController: LanHostController): void {
     this.stop(false);
     this.status = 'starting';
     this.errorMessage = null;
     this.roomCode = generateRoomCode(5);
-    const peerId = `ceki-bali-${this.roomCode}`;
     this.onStatusChange('starting');
 
-    const peer = new Peer(peerId, { config: PEER_ICE_CONFIG });
-    this.peer = peer;
-
-    peer.on('open', () => {
-      if (this.peer !== peer) return;
-      this.inviteUrl = `${window.location.origin}${window.location.pathname}?room=${this.roomCode}`;
-      this.status = 'running';
-      hostController.startOnline(hostName, this.inviteUrl, (clientId, payload) => {
-        const conn = this.conns.get(clientId);
-        if (conn && conn.open) {
-          conn.send(payload);
-        }
-      });
-      this.onStatusChange('running');
+    const sb = getSupabase();
+    const channel = sb.channel(`ceki-room-${this.roomCode}`, {
+      config: {
+        broadcast: { self: false, ack: false },
+        presence: { key: 'host' },
+      },
     });
+    this.channel = channel;
 
-    peer.on('connection', (conn) => {
-      if (this.peer !== peer) return;
-      const clientId = conn.peer;
-      this.conns.set(clientId, conn);
-
-      conn.on('open', () => {
-        if (this.peer !== peer) return;
-        hostController.handleExternalRelayMessage({
-          type: 'guest_joined',
-          clientId,
-        });
-      });
-
-      conn.on('data', (data) => {
-        if (this.peer !== peer) return;
-        const pkt = data as {
-          type?: string;
-          seq?: number;
-          ts?: number;
-          name?: string;
-          cardId?: string;
-          fromIndex?: number;
-          toIndex?: number;
+    channel
+      .on('broadcast', { event: 'guest_join' }, ({ payload }) => {
+        if (this.channel !== channel) return;
+        const msg = payload as { clientId?: string; name?: string };
+        if (!msg?.clientId) return;
+        if (!this.activeGuests.has(msg.clientId)) {
+          this.activeGuests.add(msg.clientId);
+          hostController.handleExternalRelayMessage({
+            type: 'guest_joined',
+            clientId: msg.clientId,
+          });
+        }
+        if (msg.name) {
+          hostController.handleExternalRelayMessage({
+            type: 'guest_message',
+            clientId: msg.clientId,
+            payload: { type: 'set_name', name: msg.name },
+          });
+        }
+        this.onStatusChange('running');
+      })
+      .on('broadcast', { event: 'guest_action' }, ({ payload }) => {
+        if (this.channel !== channel) return;
+        const msg = payload as {
+          clientId?: string;
+          payload?: {
+            type?: string;
+            name?: string;
+            cardId?: string;
+            fromIndex?: number;
+            toIndex?: number;
+          };
         };
-        if (pkt?.type === 'ping') {
-          if (conn.open) {
-            conn.send({ type: 'pong', seq: pkt.seq, ts: pkt.ts });
-          }
-          return;
+        if (!msg?.clientId || !msg.payload) return;
+        if (!this.activeGuests.has(msg.clientId)) {
+          this.activeGuests.add(msg.clientId);
+          hostController.handleExternalRelayMessage({
+            type: 'guest_joined',
+            clientId: msg.clientId,
+          });
         }
         hostController.handleExternalRelayMessage({
           type: 'guest_message',
-          clientId,
-          payload: pkt,
+          clientId: msg.clientId,
+          payload: msg.payload,
         });
-      });
-
-      conn.on('close', () => {
-        this.conns.delete(clientId);
-        if (this.peer !== peer) return;
-        hostController.handleExternalRelayMessage({
-          type: 'guest_left',
-          clientId,
+      })
+      .on('broadcast', { event: 'guest_leave' }, ({ payload }) => {
+        if (this.channel !== channel) return;
+        const msg = payload as { clientId?: string };
+        if (!msg?.clientId) return;
+        if (this.activeGuests.delete(msg.clientId)) {
+          hostController.handleExternalRelayMessage({
+            type: 'guest_left',
+            clientId: msg.clientId,
+          });
+          this.onStatusChange('running');
+        }
+      })
+      .on('broadcast', { event: 'ping' }, ({ payload }) => {
+        if (this.channel !== channel) return;
+        const pkt = payload as { clientId?: string; seq?: number; ts?: number };
+        if (!pkt?.clientId) return;
+        channel.send({
+          type: 'broadcast',
+          event: 'pong',
+          payload: { targetClientId: pkt.clientId, seq: pkt.seq, ts: pkt.ts },
         });
+      })
+      .on('presence', { event: 'leave' }, ({ key }) => {
+        if (this.channel !== channel) return;
+        if (key && key !== 'host' && this.activeGuests.delete(key)) {
+          hostController.handleExternalRelayMessage({
+            type: 'guest_left',
+            clientId: key,
+          });
+          this.onStatusChange('running');
+        }
+      })
+      .subscribe(async (status) => {
+        if (this.channel !== channel) return;
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ role: 'host', name: hostName });
+          this.inviteUrl = `${window.location.origin}${window.location.pathname}?room=${this.roomCode}`;
+          this.status = 'running';
+          hostController.startOnline(hostName, this.inviteUrl, (clientId, roomPayload) => {
+            if (this.channel === channel) {
+              channel.send({
+                type: 'broadcast',
+                event: 'room_state',
+                payload: { targetClientId: clientId, data: roomPayload },
+              });
+            }
+          });
+          this.onStatusChange('running');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          this.status = 'error';
+          this.errorMessage = `Gagal terhubung ke server Supabase Realtime (${status}).`;
+          this.onStatusChange('error', this.errorMessage);
+        }
       });
-
-      conn.on('error', () => {
-        this.conns.delete(clientId);
-      });
-    });
-
-    peer.on('error', (err) => {
-      if (this.peer !== peer) return;
-      if (err.type === 'unavailable-id' && retryCount < 3) {
-        this.start(hostName, hostController, retryCount + 1);
-        return;
-      }
-      this.status = 'error';
-      this.errorMessage = `Gagal membuat Room Online (${err.type || err.message}).`;
-      this.onStatusChange('error', this.errorMessage);
-    });
-
-    peer.on('disconnected', () => {
-      if (this.peer === peer && !peer.destroyed) {
-        peer.reconnect();
-      }
-    });
-  }
-
-  get connectedCount(): number {
-    let n = 0;
-    for (const c of this.conns.values()) {
-      if (c.open) n++;
-    }
-    return n;
   }
 
   stop(notify = true): void {
-    for (const conn of this.conns.values()) {
-      try {
-        conn.close();
-      } catch {
-        // ignore
-      }
-    }
-    this.conns.clear();
-    if (this.peer) {
-      const old = this.peer;
-      this.peer = null;
-      try {
-        old.destroy();
-      } catch {
-        // ignore
-      }
+    this.activeGuests.clear();
+    if (this.channel) {
+      const old = this.channel;
+      this.channel = null;
+      getSupabase().removeChannel(old).catch(() => {});
     }
     this.status = 'stopped';
     this.roomCode = '';
@@ -172,10 +192,11 @@ export class OnlineHostPeer {
 }
 
 export class OnlineGuestClient {
-  private peer: Peer | null = null;
-  private conn: DataConnection | null = null;
+  private channel: RealtimeChannel | null = null;
+  private clientId = `guest_${Math.random().toString(36).slice(2, 10)}`;
   private onRoomState: (payload: RoomStatePayload) => void;
   private onStatusChange: () => void;
+  private onPingUpdate?: () => void;
 
   public status: 'disconnected' | 'connecting' | 'connected' | 'error' = 'disconnected';
   public errorMessage: string | null = null;
@@ -192,7 +213,6 @@ export class OnlineGuestClient {
   private pingTimer: number | null = null;
   private pingSeq = 0;
   private pingHistory: Array<{ seq: number; sentAt: number; acked: boolean }> = [];
-  private onPingUpdate?: () => void;
 
   constructor(
     onRoomState: (payload: RoomStatePayload) => void,
@@ -204,14 +224,14 @@ export class OnlineGuestClient {
     this.onPingUpdate = onPingUpdate;
   }
 
-  private startPingLoop(conn: DataConnection): void {
+  private startPingLoop(channel: RealtimeChannel): void {
     this.stopPingLoop();
     this.pingHistory = [];
     this.pingMs = null;
     this.packetLossPct = 0;
 
     const sendPing = () => {
-      if (this.conn !== conn || !conn.open) return;
+      if (this.channel !== channel) return;
       const now = Date.now();
       const finished = this.pingHistory.filter((p) => now - p.sentAt >= 1500);
       if (finished.length > 0) {
@@ -224,7 +244,11 @@ export class OnlineGuestClient {
       if (this.pingHistory.length > 10) {
         this.pingHistory.shift();
       }
-      conn.send({ type: 'ping', seq, ts: now });
+      channel.send({
+        type: 'broadcast',
+        event: 'ping',
+        payload: { clientId: this.clientId, seq, ts: now },
+      });
     };
 
     sendPing();
@@ -256,125 +280,119 @@ export class OnlineGuestClient {
     this.errorMessage = null;
     this.onStatusChange();
 
-    const peer = new Peer({ config: PEER_ICE_CONFIG });
-    this.peer = peer;
-    let opened = false;
+    const sb = getSupabase();
+    const cleanName = playerName.trim().slice(0, 16) || 'Pemain';
+    const channel = sb.channel(`ceki-room-${code}`, {
+      config: {
+        broadcast: { self: false, ack: false },
+        presence: { key: this.clientId },
+      },
+    });
+    this.channel = channel;
+    let receivedState = false;
 
-    peer.on('open', () => {
-      if (this.peer !== peer) return;
-      const conn = peer.connect(`ceki-bali-${code}`, {
-        reliable: true,
-        serialization: 'json',
-      });
-      this.conn = conn;
+    const timeout = window.setTimeout(() => {
+      if (!receivedState && this.channel === channel) {
+        this.errorMessage = `Room "${code}" tidak merespons (pastikan Host sudah membuka Room).`;
+        this.disconnect(false);
+        this.status = 'error';
+        this.onStatusChange();
+      }
+    }, 8000);
 
-      const timeout = window.setTimeout(() => {
-        if (!opened && this.conn === conn) {
-          this.status = 'error';
-          this.errorMessage = `Room "${code}" tidak ditemukan atau Host sedang offline.`;
+    channel
+      .on('broadcast', { event: 'room_state' }, ({ payload }) => {
+        if (this.channel !== channel) return;
+        const envelope = payload as { targetClientId?: string; data?: RoomStatePayload };
+        if (envelope?.targetClientId !== this.clientId || !envelope.data) return;
+
+        if (!receivedState) {
+          receivedState = true;
+          window.clearTimeout(timeout);
+          this.status = 'connected';
+          this.errorMessage = null;
+          this.startPingLoop(channel);
+        }
+
+        const msg = envelope.data;
+        this.lobby = msg.lobby;
+        this.mySeat = msg.mySeat;
+        this.isHost = msg.isHost;
+        this.roundActive = msg.roundActive;
+        this.turnDurationSec = msg.turnDurationSec ?? 15;
+        this.turnDeadlineAt = msg.turnDeadlineAt ?? null;
+        this.onRoomState(msg);
+      })
+      .on('broadcast', { event: 'pong' }, ({ payload }) => {
+        if (this.channel !== channel) return;
+        const pkt = payload as { targetClientId?: string; seq?: number; ts?: number };
+        if (pkt?.targetClientId !== this.clientId) return;
+
+        const entry = this.pingHistory.find((p) => p.seq === pkt.seq);
+        if (entry) entry.acked = true;
+        if (typeof pkt.ts === 'number') {
+          this.pingMs = Math.max(1, Date.now() - pkt.ts);
+        }
+        const now = Date.now();
+        const finished = this.pingHistory.filter((p) => p.acked || now - p.sentAt >= 1500);
+        if (finished.length > 0) {
+          const lost = finished.filter((p) => !p.acked).length;
+          this.packetLossPct = Math.round((lost / finished.length) * 100);
+        }
+        this.onPingUpdate?.();
+      })
+      .on('presence', { event: 'leave' }, ({ key }) => {
+        if (this.channel !== channel) return;
+        if (key === 'host' && receivedState) {
+          this.errorMessage = 'Host menutup Room Online.';
           this.disconnect(false);
-          this.status = 'error';
+          this.status = 'disconnected';
           this.onStatusChange();
         }
-      }, 10000);
-
-      conn.on('open', () => {
-        if (this.conn !== conn) return;
-        opened = true;
-        window.clearTimeout(timeout);
-        this.status = 'connected';
-        this.errorMessage = null;
-        conn.send({
-          type: 'join',
-          name: playerName.trim().slice(0, 16) || 'Pemain',
-        });
-        this.startPingLoop(conn);
-        this.onStatusChange();
-      });
-
-      conn.on('data', (data) => {
-        if (this.conn !== conn) return;
-        const msg = data as RoomStatePayload | { type: 'pong'; seq?: number; ts?: number };
-        if (msg && msg.type === 'pong') {
-          const entry = this.pingHistory.find((p) => p.seq === msg.seq);
-          if (entry) entry.acked = true;
-          if (typeof msg.ts === 'number') {
-            this.pingMs = Math.max(1, Date.now() - msg.ts);
-          }
-          const now = Date.now();
-          const finished = this.pingHistory.filter((p) => p.acked || now - p.sentAt >= 1500);
-          if (finished.length > 0) {
-            const lost = finished.filter((p) => !p.acked).length;
-            this.packetLossPct = Math.round((lost / finished.length) * 100);
-          }
-          this.onPingUpdate?.();
-          return;
-        }
-        if (msg && msg.type === 'room_state') {
-          this.lobby = msg.lobby;
-          this.mySeat = msg.mySeat;
-          this.isHost = msg.isHost;
-          this.roundActive = msg.roundActive;
-          this.turnDurationSec = msg.turnDurationSec ?? 15;
-          this.turnDeadlineAt = msg.turnDeadlineAt ?? null;
-          this.onRoomState(msg);
+      })
+      .subscribe(async (status) => {
+        if (this.channel !== channel) return;
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ role: 'guest', name: cleanName });
+          await channel.send({
+            type: 'broadcast',
+            event: 'guest_join',
+            payload: { clientId: this.clientId, name: cleanName },
+          });
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          window.clearTimeout(timeout);
+          this.status = 'error';
+          this.errorMessage = `Gagal terhubung ke Room "${code}" (${status}).`;
+          this.onStatusChange();
         }
       });
-
-      conn.on('close', () => {
-        window.clearTimeout(timeout);
-        if (this.conn !== conn) return;
-        this.conn = null;
-        this.status = 'disconnected';
-        this.errorMessage = 'Koneksi ke Host Room Online terputus.';
-        this.onStatusChange();
-      });
-
-      conn.on('error', () => {
-        window.clearTimeout(timeout);
-        if (this.conn !== conn) return;
-        this.status = 'error';
-        this.errorMessage = `Gagal terhubung ke Room "${code}".`;
-        this.onStatusChange();
-      });
-    });
-
-    peer.on('error', (err) => {
-      if (this.peer !== peer) return;
-      this.status = 'error';
-      this.errorMessage =
-        err.type === 'peer-unavailable'
-          ? `Room "${code}" tidak ditemukan atau sudah ditutup.`
-          : `Koneksi Room Online gagal (${err.type || err.message}).`;
-      this.onStatusChange();
-    });
   }
 
   send(msg: Record<string, unknown>): void {
-    if (this.conn && this.conn.open) {
-      this.conn.send(msg);
+    if (this.channel && this.status === 'connected') {
+      this.channel.send({
+        type: 'broadcast',
+        event: 'guest_action',
+        payload: { clientId: this.clientId, payload: msg },
+      });
     }
   }
 
   disconnect(notify = true): void {
     this.stopPingLoop();
-    if (this.conn) {
-      const oldConn = this.conn;
-      this.conn = null;
-      try {
-        oldConn.close();
-      } catch {
-        // ignore
-      }
-    }
-    if (this.peer) {
-      const oldPeer = this.peer;
-      this.peer = null;
-      try {
-        oldPeer.destroy();
-      } catch {
-        // ignore
-      }
+    if (this.channel) {
+      const old = this.channel;
+      this.channel = null;
+      old
+        .send({
+          type: 'broadcast',
+          event: 'guest_leave',
+          payload: { clientId: this.clientId },
+        })
+        .catch(() => {})
+        .finally(() => {
+          getSupabase().removeChannel(old).catch(() => {});
+        });
     }
     this.status = 'disconnected';
     this.lobby = [];
