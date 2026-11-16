@@ -251,44 +251,50 @@ body {
   z-index: 1;
 }
 
-/* 5-Player Perspective Bot Seats */
+/* 5-Player Perspective Bot Seats (Symmetrical: Name on top, Discard below) */
 .bot-seat {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   min-width: 0;
 }
 
+.bot-badge,
+.player-discard-right {
+  flex-shrink: 0;
+}
+
 .seat-top-left {
   grid-area: top-left;
-  justify-content: flex-end;
-  align-items: center;
-  transform: scale(0.84) translate(-18px, 16px);
-  transform-origin: bottom right;
+  justify-self: end;
+  align-self: start;
+  transform: scale(0.86) translate(-16px, 6px);
+  transform-origin: top right;
 }
 
 .seat-top-right {
   grid-area: top-right;
-  justify-content: flex-start;
-  align-items: center;
-  transform: scale(0.84) translate(18px, 16px);
-  transform-origin: bottom left;
+  justify-self: start;
+  align-self: start;
+  transform: scale(0.86) translate(16px, 6px);
+  transform-origin: top left;
 }
 
 .seat-left {
   grid-area: left;
-  justify-content: flex-start;
-  align-items: center;
-  transform: scale(0.9) translateX(18px);
+  justify-self: start;
+  align-self: center;
+  transform: scale(0.88) translate(16px, -8px);
   transform-origin: left center;
 }
 
 .seat-right {
   grid-area: right;
-  justify-content: flex-end;
-  align-items: center;
-  transform: scale(0.9) translateX(-18px);
+  justify-self: end;
+  align-self: center;
+  transform: scale(0.88) translate(-16px, -8px);
   transform-origin: right center;
 }
 
@@ -2482,19 +2488,19 @@ body {
   }
 
   .seat-top-left {
-    transform: scale(0.6) translate(-10px, 8px);
+    transform: scale(0.58) translate(-10px, 2px);
   }
 
   .seat-top-right {
-    transform: scale(0.6) translate(10px, 8px);
+    transform: scale(0.58) translate(10px, 2px);
   }
 
   .seat-left {
-    transform: scale(0.6) translate(106px, 8px);
+    transform: scale(0.58) translate(98px, 4px);
   }
 
   .seat-right {
-    transform: scale(0.6) translate(-6px, 8px);
+    transform: scale(0.58) translate(-10px, 4px);
   }
 
   .center-arena {
