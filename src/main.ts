@@ -2383,7 +2383,25 @@ function render(): void {
     if (errToShow) {
       const err = document.createElement('div');
       err.className = 'lan-error';
-      err.textContent = errToShow;
+      if (window.location.protocol === 'https:' && lanTab === 'host') {
+        err.innerHTML = `
+          <div>Browser web (${window.location.hostname}) tidak bisa membuka server Wi-Fi LAN lokal. Untuk Host LAN, buka dari <strong>Aplikasi Desktop</strong> (macOS/Windows/Steam Deck) atau jalankan <code>npm run lan</code> di komputer.</div>
+        `;
+        const switchOnlineBtn = document.createElement('button');
+        switchOnlineBtn.className = 'btn btn-gold';
+        switchOnlineBtn.style.marginTop = '8px';
+        switchOnlineBtn.textContent = '🌍 Pindah ke Room Online (Bisa Langsung dari Browser)';
+        switchOnlineBtn.addEventListener('click', () => {
+          hostErrorMsg = null;
+          lanModalOpen = false;
+          onlineTab = 'host';
+          onlineModalOpen = true;
+          render();
+        });
+        err.appendChild(switchOnlineBtn);
+      } else {
+        err.textContent = errToShow;
+      }
       modal.appendChild(err);
     }
 

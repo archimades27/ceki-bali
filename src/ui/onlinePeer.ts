@@ -86,7 +86,7 @@ export class OnlineHostPeer {
         }
         if (msg.name) {
           hostController.handleExternalRelayMessage({
-            type: 'guest_message',
+            type: 'from_guest',
             clientId: msg.clientId,
             payload: { type: 'set_name', name: msg.name },
           });
@@ -114,7 +114,7 @@ export class OnlineHostPeer {
           });
         }
         hostController.handleExternalRelayMessage({
-          type: 'guest_message',
+          type: 'from_guest',
           clientId: msg.clientId,
           payload: msg.payload,
         });
