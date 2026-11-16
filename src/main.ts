@@ -972,11 +972,13 @@ function resetSoloTurnTimer(): void {
 }
 
 function updateTurnTimerBadge(): void {
-  const pill = document.querySelector('.turn-timer-pill') as HTMLElement | null;
-  if (!pill || activeTurnDeadlineAt === null) return;
+  const pills = document.querySelectorAll('.turn-timer-pill');
+  if (pills.length === 0 || activeTurnDeadlineAt === null) return;
   const sec = Math.max(0, Math.ceil((activeTurnDeadlineAt - Date.now()) / 1000));
-  pill.textContent = `⏱ ${sec}d`;
-  pill.classList.toggle('is-urgent', sec <= 5);
+  pills.forEach((el) => {
+    el.textContent = `⏱ ${sec}d`;
+    el.classList.toggle('is-urgent', sec <= 5);
+  });
 }
 
 window.setInterval(updateTurnTimerBadge, 1000);
@@ -1139,7 +1141,16 @@ function renderBotSeat(
   const activePill = isActive
     ? `<span class="active-turn-pill">GILIRAN</span>`
     : '';
+  const sec =
+    isActive && activeTurnDeadlineAt !== null
+      ? Math.max(0, Math.ceil((activeTurnDeadlineAt - Date.now()) / 1000))
+      : null;
+  const seatTimerHtml =
+    sec !== null
+      ? `<span class="turn-timer-pill seat-turn-timer ${sec <= 5 ? 'is-urgent' : ''}">⏱ ${sec}d</span>`
+      : '';
   badge.innerHTML = `
+    ${seatTimerHtml}
     ${activeLogo}
     <div class="bot-avatar">${player.avatarText}</div>
     <div class="bot-meta">
@@ -1602,6 +1613,25 @@ function render(): void {
   });
   tableWrapper.appendChild(scorePanel);
 
+  if (state.phase !== 'round_over') {
+    const nyariPlayers = state.players.filter(
+      (p) => p.readyMode === 'mecari' || p.readyMode === 'mejaga'
+    );
+    if (nyariPlayers.length > 0) {
+      const hasMejaga = nyariPlayers.some((p) => p.readyMode === 'mejaga');
+      const alertBanner = document.createElement('div');
+      alertBanner.className = `nyari-wow-banner ${hasMejaga ? 'is-mejaga' : 'is-mecari'}`;
+      const summary = nyariPlayers
+        .map(
+          (p) =>
+            `<strong>${p.name}</strong> (${p.readyMode === 'mejaga' ? '🔥 MEJAGA' : '🔍 MECARI'})`
+        )
+        .join(' • ');
+      alertBanner.innerHTML = `⚠️ <span>WASPADA NYARI!</span> ${summary} — Hati-hati kupakan!`;
+      tableWrapper.appendChild(alertBanner);
+    }
+  }
+
   const table = document.createElement('div');
   table.className = `table-surface ${state.pendingDrawnCard ? 'has-pending' : ''}`;
 
@@ -1687,7 +1717,7 @@ function render(): void {
       activeTurnDeadlineAt = null;
     }
   }
-  if (activeTurnDeadlineAt !== null && state.phase !== 'round_over') {
+  if (isHumanTurn && activeTurnDeadlineAt !== null && state.phase !== 'round_over') {
     const timerPill = document.createElement('span');
     timerPill.className = 'turn-timer-pill';
     const sec = Math.max(0, Math.ceil((activeTurnDeadlineAt - Date.now()) / 1000));
