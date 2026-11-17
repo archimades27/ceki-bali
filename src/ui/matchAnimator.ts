@@ -23,6 +23,7 @@ export class MatchAnimator {
   private activeAnims: Animation[] = [];
   private activeTimers: number[] = [];
   private hiddenEls: HTMLElement[] = [];
+  private displayNoneEls: HTMLElement[] = [];
   private pendingComplete: (() => void) | null = null;
   private _isAnimating = false;
 
@@ -105,6 +106,11 @@ export class MatchAnimator {
       el.style.visibility = '';
     }
     this.hiddenEls = [];
+
+    for (const el of this.displayNoneEls) {
+      el.style.display = '';
+    }
+    this.displayNoneEls = [];
 
     document.querySelectorAll('.human-hand-row.is-dealing').forEach((el) => {
       el.classList.remove('is-dealing');
@@ -342,14 +348,16 @@ export class MatchAnimator {
       handRowEl.classList.add('is-dealing');
     }
 
-    // Hide human hand cards until their corresponding card lands
+    // Start with human hand completely empty (display: none) so cards appear one-by-one as dealt
     for (const cardEl of humanHandCards) {
+      cardEl.style.display = 'none';
       cardEl.style.visibility = 'hidden';
+      this.displayNoneEls.push(cardEl);
       this.hiddenEls.push(cardEl);
     }
 
     const totalRounds = 11;
-    const staggerMs = 52;
+    const staggerMs = 55;
     const flightMs = 260;
     const totalCards = totalRounds * seatTargets.length;
     let humanCardIdx = 0;
@@ -369,76 +377,86 @@ export class MatchAnimator {
         const assignedHumanEl = isHumanTarget ? humanHandCards[humanCardIdx++] ?? null : null;
 
         if (!target) return;
-        const tRect = assignedHumanEl ? assignedHumanEl.getBoundingClientRect() : target.getBoundingClientRect();
-        if (tRect.width === 0) return;
 
-        const tx = tRect.left + tRect.width / 2 - w / 2;
-        const ty = tRect.top + tRect.height / 2 - h / 2;
+        this.trackTimer(() => {
+          if (myEpoch !== this.epoch) return;
 
-        const proxy = document.createElement('div');
-        proxy.className = 'anim-proxy-mover';
-        proxy.style.width = `${w}px`;
-        proxy.style.height = `${h}px`;
-        proxy.style.opacity = '0';
-        const back = renderCardBack('vertical', false);
-        back.style.width = '100%';
-        back.style.height = '100%';
-        proxy.appendChild(back);
-        this.overlay.appendChild(proxy);
-
-        if (onStepSound && cardSeq % 2 === 0) {
-          this.trackTimer(() => {
-            onStepSound(cardSeq);
-          }, delay, myEpoch);
-        }
-
-        const startRot = (seatOrderIdx - 2) * 4;
-        const anim = proxy.animate(
-          [
-            {
-              transform: `translate3d(${sx}px, ${sy}px, 0) scale(0.86) rotate(${startRot}deg)`,
-              opacity: 0.96,
-            },
-            {
-              transform: `translate3d(${(sx + tx) / 2}px, ${(sy + ty) / 2 - 14}px, 0) scale(${isHumanTarget ? 1.02 : 0.82}) rotate(${startRot * 0.4}deg)`,
-              opacity: 1,
-              offset: 0.55,
-            },
-            {
-              transform: `translate3d(${tx}px, ${ty}px, 0) scale(${isHumanTarget ? 0.96 : 0.7}) rotate(0deg)`,
-              opacity: isHumanTarget ? 1 : 0.35,
-            },
-          ],
-          {
-            duration: flightMs,
-            delay,
-            easing: 'cubic-bezier(0.2, 0.85, 0.32, 1)',
-            fill: 'forwards',
+          if (assignedHumanEl) {
+            // Reveal this card's layout slot right as its flight begins
+            assignedHumanEl.style.display = '';
+            assignedHumanEl.style.visibility = 'hidden';
           }
-        );
-        this.activeAnims.push(anim);
-        anim.finished
-          .then(() => {
-            if (myEpoch !== this.epoch) {
+
+          const tRect = assignedHumanEl
+            ? assignedHumanEl.getBoundingClientRect()
+            : target.getBoundingClientRect();
+          if (tRect.width === 0) return;
+
+          const tx = tRect.left + tRect.width / 2 - w / 2;
+          const ty = tRect.top + tRect.height / 2 - h / 2;
+
+          const proxy = document.createElement('div');
+          proxy.className = 'anim-proxy-mover';
+          proxy.style.width = `${w}px`;
+          proxy.style.height = `${h}px`;
+          proxy.style.opacity = '0';
+          const back = renderCardBack('vertical', false);
+          back.style.width = '100%';
+          back.style.height = '100%';
+          proxy.appendChild(back);
+          this.overlay.appendChild(proxy);
+
+          if (onStepSound && cardSeq % 2 === 0) {
+            onStepSound(cardSeq);
+          }
+
+          const startRot = (seatOrderIdx - 2) * 4;
+          const anim = proxy.animate(
+            [
+              {
+                transform: `translate3d(${sx}px, ${sy}px, 0) scale(0.86) rotate(${startRot}deg)`,
+                opacity: 0.96,
+              },
+              {
+                transform: `translate3d(${(sx + tx) / 2}px, ${(sy + ty) / 2 - 14}px, 0) scale(${isHumanTarget ? 1.02 : 0.82}) rotate(${startRot * 0.4}deg)`,
+                opacity: 1,
+                offset: 0.55,
+              },
+              {
+                transform: `translate3d(${tx}px, ${ty}px, 0) scale(${isHumanTarget ? 0.96 : 0.7}) rotate(0deg)`,
+                opacity: isHumanTarget ? 1 : 0.35,
+              },
+            ],
+            {
+              duration: flightMs,
+              easing: 'cubic-bezier(0.2, 0.85, 0.32, 1)',
+              fill: 'forwards',
+            }
+          );
+          this.activeAnims.push(anim);
+          anim.finished
+            .then(() => {
+              if (myEpoch !== this.epoch) {
+                proxy.remove();
+                return;
+              }
+              if (assignedHumanEl) {
+                assignedHumanEl.style.visibility = '';
+                assignedHumanEl.classList.add('anim-card-deal-pop');
+                this.trackTimer(() => {
+                  assignedHumanEl.classList.remove('anim-card-deal-pop');
+                }, 220, myEpoch);
+              }
               proxy.remove();
-              return;
-            }
-            if (assignedHumanEl) {
-              assignedHumanEl.style.visibility = '';
-              assignedHumanEl.classList.add('anim-card-deal-pop');
-              this.trackTimer(() => {
-                assignedHumanEl.classList.remove('anim-card-deal-pop');
-              }, 220, myEpoch);
-            }
-            proxy.remove();
-          })
-          .catch(() => {
-            proxy.remove();
-          });
+            })
+            .catch(() => {
+              proxy.remove();
+            });
+        }, delay, myEpoch);
       });
     }
 
-    const totalDuration = (totalCards - 1) * staggerMs + flightMs + 80;
+    const totalDuration = (totalCards - 1) * staggerMs + flightMs + 100;
     this.trackTimer(() => {
       this.pendingComplete?.();
     }, totalDuration, myEpoch);

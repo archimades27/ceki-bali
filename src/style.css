@@ -3216,12 +3216,14 @@ body {
   border-color: transparent !important;
   background: transparent !important;
   box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .human-hand-row.is-dealing .meld-type-caption,
 .human-hand-row.is-dealing .meld-fire-flames,
 .human-hand-row.is-dealing .meld-formed-badge {
-  opacity: 0 !important;
+  display: none !important;
 }
 
 @keyframes cardDealPop {
