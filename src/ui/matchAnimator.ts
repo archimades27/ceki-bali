@@ -112,7 +112,7 @@ export class MatchAnimator {
     }
     this.displayNoneEls = [];
 
-    document.querySelectorAll('.human-hand-row.is-dealing').forEach((el) => {
+    document.querySelectorAll('.human-hand-row.is-dealing, .table-felt.is-dealing').forEach((el) => {
       el.classList.remove('is-dealing');
     });
 
@@ -347,13 +347,35 @@ export class MatchAnimator {
     if (handRowEl) {
       handRowEl.classList.add('is-dealing');
     }
+    const tableEl = document.querySelector('.table-felt') as HTMLElement | null;
+    if (tableEl) {
+      tableEl.classList.add('is-dealing');
+    }
 
-    // Start with human hand completely empty (display: none) so cards appear one-by-one as dealt
+    // Keep exact left-to-right slot geometry while visually empty (visibility: hidden)
     for (const cardEl of humanHandCards) {
-      cardEl.style.display = 'none';
       cardEl.style.visibility = 'hidden';
-      this.displayNoneEls.push(cardEl);
       this.hiddenEls.push(cardEl);
+    }
+
+    // Initialize bot card counts to 0 and stock count to 120 so table starts empty
+    const botCounts = new Map<HTMLElement, number>();
+    const setBotCountText = (targetEl: HTMLElement, count: number) => {
+      const sub = targetEl.querySelector('.bot-sub');
+      if (!sub || !sub.textContent) return;
+      sub.textContent = sub.textContent.replace(/\d+\s*kartu/, `${count} kartu`);
+    };
+    seatTargets.forEach((t) => {
+      if (t && !t.classList.contains('human-hand-row')) {
+        botCounts.set(t, 0);
+        setBotCountText(t, 0);
+      }
+    });
+    const stockBadge = stockEl.parentElement?.querySelector('.stock-count-badge') as HTMLElement | null;
+    const finalStockText = stockBadge?.textContent ?? null;
+    let remainingDeck = 120;
+    if (stockBadge) {
+      stockBadge.textContent = String(remainingDeck);
     }
 
     const totalRounds = 11;
@@ -365,6 +387,9 @@ export class MatchAnimator {
     this.pendingComplete = () => {
       if (myEpoch !== this.epoch) return;
       this.pendingComplete = null;
+      if (stockBadge && finalStockText !== null) {
+        stockBadge.textContent = finalStockText;
+      }
       this.cleanupVisuals();
       onComplete?.();
     };
@@ -381,16 +406,15 @@ export class MatchAnimator {
         this.trackTimer(() => {
           if (myEpoch !== this.epoch) return;
 
-          if (assignedHumanEl) {
-            // Reveal this card's layout slot right as its flight begins
-            assignedHumanEl.style.display = '';
-            assignedHumanEl.style.visibility = 'hidden';
-          }
-
           const tRect = assignedHumanEl
             ? assignedHumanEl.getBoundingClientRect()
             : target.getBoundingClientRect();
           if (tRect.width === 0) return;
+
+          if (stockBadge) {
+            remainingDeck = Math.max(0, remainingDeck - 1);
+            stockBadge.textContent = String(remainingDeck);
+          }
 
           const tx = tRect.left + tRect.width / 2 - w / 2;
           const ty = tRect.top + tRect.height / 2 - h / 2;
@@ -410,21 +434,21 @@ export class MatchAnimator {
             onStepSound(cardSeq);
           }
 
-          const startRot = (seatOrderIdx - 2) * 4;
+          const startRot = (seatOrderIdx - 2) * 5;
           const anim = proxy.animate(
             [
               {
-                transform: `translate3d(${sx}px, ${sy}px, 0) scale(0.86) rotate(${startRot}deg)`,
-                opacity: 0.96,
+                transform: `translate3d(${sx}px, ${sy}px, 0) scale(0.88) rotate(${startRot}deg)`,
+                opacity: 0.98,
               },
               {
-                transform: `translate3d(${(sx + tx) / 2}px, ${(sy + ty) / 2 - 14}px, 0) scale(${isHumanTarget ? 1.02 : 0.82}) rotate(${startRot * 0.4}deg)`,
+                transform: `translate3d(${(sx + tx) / 2}px, ${(sy + ty) / 2 - 14}px, 0) scale(1.0) rotate(${startRot * 0.35}deg)`,
                 opacity: 1,
                 offset: 0.55,
               },
               {
-                transform: `translate3d(${tx}px, ${ty}px, 0) scale(${isHumanTarget ? 0.96 : 0.7}) rotate(0deg)`,
-                opacity: isHumanTarget ? 1 : 0.35,
+                transform: `translate3d(${tx}px, ${ty}px, 0) scale(${isHumanTarget ? 0.96 : 0.78}) rotate(0deg)`,
+                opacity: isHumanTarget ? 1 : 0.9,
               },
             ],
             {
@@ -446,6 +470,10 @@ export class MatchAnimator {
                 this.trackTimer(() => {
                   assignedHumanEl.classList.remove('anim-card-deal-pop');
                 }, 220, myEpoch);
+              } else if (botCounts.has(target)) {
+                const nextCount = (botCounts.get(target) ?? 0) + 1;
+                botCounts.set(target, nextCount);
+                setBotCountText(target, nextCount);
               }
               proxy.remove();
             })

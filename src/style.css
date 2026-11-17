@@ -3212,6 +3212,12 @@ body {
   white-space: nowrap;
 }
 
+.table-felt.is-dealing .discard-pile .classic-card,
+.table-felt.is-dealing .pile-count-badge,
+.table-felt.is-dealing .bot-exposed-row {
+  visibility: hidden !important;
+}
+
 .human-hand-row.is-dealing .hand-meld-group {
   border-color: transparent !important;
   background: transparent !important;
