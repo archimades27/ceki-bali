@@ -502,7 +502,7 @@ function scheduleBotTurnIfNeeded(): void {
   const current = state.players[state.currentPlayerIndex];
   if (state.phase === 'bot_thinking' && state.botStep === 'draw' && !current.isHuman) {
     const myEpoch = animator.currentEpoch;
-    const delay = 850 + Math.floor(Math.random() * 350);
+    const delay = 1600 + Math.floor(Math.random() * 1400);
     botTimer = window.setTimeout(() => {
       if (myEpoch !== animator.currentEpoch) return;
       runBotDrawStep();
@@ -535,14 +535,15 @@ function scheduleBotDiscardStep(): void {
 
   const myEpoch = animator.currentEpoch;
   if (state.lastDrawSource !== 'ngejuk' && findWinningMelds(bot.hand, state.playStyle) !== null) {
+    const cekiDelay = 1100 + Math.floor(Math.random() * 500);
     botTimer = window.setTimeout(() => {
       if (myEpoch !== animator.currentEpoch) return;
       dispatchAction({ type: 'declare_ceki', playerIndex: state.currentPlayerIndex });
-    }, 550);
+    }, cekiDelay);
     return;
   }
 
-  const discardDelay = 900 + Math.floor(Math.random() * 400);
+  const discardDelay = 1800 + Math.floor(Math.random() * 1700);
   botTimer = window.setTimeout(() => {
     if (myEpoch !== animator.currentEpoch) return;
     const activeBot = state.players[state.currentPlayerIndex];

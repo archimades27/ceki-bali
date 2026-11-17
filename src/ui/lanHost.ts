@@ -587,7 +587,7 @@ export class LanHostController {
     if (!current || current.isHuman || this.state.phase !== 'bot_thinking') return;
 
     if (this.state.botStep === 'draw') {
-      const drawDelay = 900 + Math.floor(Math.random() * 380);
+      const drawDelay = 1600 + Math.floor(Math.random() * 1400);
       this.botTimer = window.setTimeout(() => {
         const bot = this.state.players[this.state.currentPlayerIndex];
         if (!bot || bot.isHuman || this.state.botStep !== 'draw') return;
@@ -600,7 +600,7 @@ export class LanHostController {
         this.scheduleBotIfNeeded();
       }, drawDelay);
     } else if (this.state.botStep === 'discard') {
-      const discardDelay = 950 + Math.floor(Math.random() * 420);
+      const discardDelay = 1800 + Math.floor(Math.random() * 1700);
       this.botTimer = window.setTimeout(() => {
         const bot = this.state.players[this.state.currentPlayerIndex];
         if (!bot || bot.isHuman || this.state.botStep !== 'discard') return;
