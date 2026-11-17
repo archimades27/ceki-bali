@@ -2,8 +2,8 @@ import { createClient, type RealtimeChannel, type SupabaseClient } from '@supaba
 import type { LobbySeatInfo, RoomStatePayload } from './lanClient.ts';
 import type { LanHostController } from './lanHost.ts';
 
-const SUPABASE_URL = 'https://uooxjqoovavromnkweyc.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_bo0860ZkBjIa1SmE6E0_TQ_kj1YRpjt';
+const SUPABASE_URL = 'https://cxfchncojvdvcziervst.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_WZqeBnyW9ggesEAgH0UiQQ_kgEBqK4e';
 
 let sharedClient: SupabaseClient | null = null;
 function getSupabase(): SupabaseClient {
