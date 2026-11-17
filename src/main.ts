@@ -1235,12 +1235,14 @@ function renderBotSeat(
   const player = state.players[playerIdx];
   const isActive = state.currentPlayerIndex === playerIdx && state.phase !== 'round_over';
 
-  const isNyari = player.readyMode === 'mecari' || player.readyMode === 'mejaga';
+  const isNyari =
+    state.phase !== 'round_over' &&
+    (player.readyMode === 'mecari' || player.readyMode === 'mejaga');
   const nyariPill =
     player.readyMode === 'mejaga'
-      ? `<span class="player-nyari-pill is-mejaga" title="Sedang Mejaga (2+ Soca)">🔥 MEJAGA</span>`
+      ? `<span class="player-nyari-pill is-mejaga" title="Sedang Mejaga (2+ Soca)">🔥 MEJAGA!</span>`
       : player.readyMode === 'mecari'
-        ? `<span class="player-nyari-pill is-mecari" title="Sedang Mecari (1 Soca)">🔍 MECARI</span>`
+        ? `<span class="player-nyari-pill is-mecari" title="Sedang Mecari (1 Soca)">🔥 MECARI!</span>`
         : '';
 
   const seat = document.createElement('div');
@@ -1248,8 +1250,11 @@ function renderBotSeat(
   seat.dataset.seatIndex = String(playerIdx);
 
   const badge = document.createElement('div');
-  badge.className = `bot-badge ${isActive ? 'is-active' : ''} ${isNyari ? 'is-nyari' : ''}`;
+  badge.className = `bot-badge ${isActive ? 'is-active' : ''} ${isNyari ? 'is-nyari is-nyari-fire' : ''}`;
   badge.dataset.animAnchor = `seat-${playerIdx}`;
+  const fireHtml = isNyari
+    ? `<div class="nyari-fire-flames" aria-hidden="true"><span></span><span></span><span></span><span></span></div>`
+    : '';
   const activeLogo = isActive
     ? `<span class="active-turn-logo" title="Giliran ${player.name}">👑</span>`
     : '';
@@ -1265,6 +1270,7 @@ function renderBotSeat(
       ? `<span class="turn-timer-pill seat-turn-timer ${sec <= 5 ? 'is-urgent' : ''}">⏱ ${sec}d</span>`
       : '';
   badge.innerHTML = `
+    ${fireHtml}
     ${seatTimerHtml}
     ${activeLogo}
     <div class="bot-avatar">${player.avatarText}</div>
@@ -1727,13 +1733,15 @@ function render(): void {
   state.players.forEach((p, idx) => {
     const isMe = idx === mySeat;
     const isTurn = state.currentPlayerIndex === idx && state.phase !== 'round_over';
+    const isRowNyari =
+      state.phase !== 'round_over' && (p.readyMode === 'mecari' || p.readyMode === 'mejaga');
     const row = document.createElement('div');
-    row.className = `underlords-score-row ${isMe ? 'is-human' : ''} ${isTurn ? 'is-turn' : ''}`;
+    row.className = `underlords-score-row ${isMe ? 'is-human' : ''} ${isTurn ? 'is-turn' : ''} ${isRowNyari ? 'is-nyari-fire' : ''}`;
     const nyariTag =
       p.readyMode === 'mejaga'
         ? ' <span class="ul-nyari is-mejaga" title="Mejaga">🔥</span>'
         : p.readyMode === 'mecari'
-          ? ' <span class="ul-nyari is-mecari" title="Mecari">🔍</span>'
+          ? ' <span class="ul-nyari is-mecari" title="Mecari">🔥</span>'
           : '';
     row.innerHTML = `
       <span class="ul-dot">${isMe ? '★' : p.avatarText}</span>
@@ -1743,25 +1751,6 @@ function render(): void {
     scorePanel.appendChild(row);
   });
   tableWrapper.appendChild(scorePanel);
-
-  if (state.phase !== 'round_over') {
-    const nyariPlayers = state.players.filter(
-      (p) => p.readyMode === 'mecari' || p.readyMode === 'mejaga'
-    );
-    if (nyariPlayers.length > 0) {
-      const hasMejaga = nyariPlayers.some((p) => p.readyMode === 'mejaga');
-      const alertBanner = document.createElement('div');
-      alertBanner.className = `nyari-wow-banner ${hasMejaga ? 'is-mejaga' : 'is-mecari'}`;
-      const summary = nyariPlayers
-        .map(
-          (p) =>
-            `<strong>${p.name}</strong> (${p.readyMode === 'mejaga' ? '🔥 MEJAGA' : '🔍 MECARI'})`
-        )
-        .join(' • ');
-      alertBanner.innerHTML = `⚠️ <span>WASPADA NYARI!</span> ${summary} — Hati-hati kupakan!`;
-      tableWrapper.appendChild(alertBanner);
-    }
-  }
 
   const table = document.createElement('div');
   table.className = `table-surface ${state.pendingDrawnCard ? 'has-pending' : ''}`;
