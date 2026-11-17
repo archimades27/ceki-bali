@@ -106,6 +106,10 @@ export class MatchAnimator {
     }
     this.hiddenEls = [];
 
+    document.querySelectorAll('.human-hand-row.is-dealing').forEach((el) => {
+      el.classList.remove('is-dealing');
+    });
+
     this.overlay.innerHTML = '';
     this._isAnimating = false;
   }
@@ -328,10 +332,15 @@ export class MatchAnimator {
     }
 
     this._isAnimating = true;
-    const w = 40;
-    const h = 92;
+    const w = 44;
+    const h = 100;
     const sx = stockRect.left + stockRect.width / 2 - w / 2;
     const sy = stockRect.top + stockRect.height / 2 - h / 2;
+
+    const handRowEl = document.querySelector('.human-hand-row') as HTMLElement | null;
+    if (handRowEl) {
+      handRowEl.classList.add('is-dealing');
+    }
 
     // Hide human hand cards until their corresponding card lands
     for (const cardEl of humanHandCards) {
@@ -340,8 +349,8 @@ export class MatchAnimator {
     }
 
     const totalRounds = 11;
-    const staggerMs = 28;
-    const flightMs = 170;
+    const staggerMs = 52;
+    const flightMs = 260;
     const totalCards = totalRounds * seatTargets.length;
     let humanCardIdx = 0;
 
@@ -383,21 +392,27 @@ export class MatchAnimator {
           }, delay, myEpoch);
         }
 
+        const startRot = (seatOrderIdx - 2) * 4;
         const anim = proxy.animate(
           [
             {
-              transform: `translate3d(${sx}px, ${sy}px, 0) scale(0.92)`,
+              transform: `translate3d(${sx}px, ${sy}px, 0) scale(0.86) rotate(${startRot}deg)`,
               opacity: 0.96,
             },
             {
-              transform: `translate3d(${tx}px, ${ty}px, 0) scale(${isHumanTarget ? 0.92 : 0.68})`,
-              opacity: isHumanTarget ? 1 : 0.25,
+              transform: `translate3d(${(sx + tx) / 2}px, ${(sy + ty) / 2 - 14}px, 0) scale(${isHumanTarget ? 1.02 : 0.82}) rotate(${startRot * 0.4}deg)`,
+              opacity: 1,
+              offset: 0.55,
+            },
+            {
+              transform: `translate3d(${tx}px, ${ty}px, 0) scale(${isHumanTarget ? 0.96 : 0.7}) rotate(0deg)`,
+              opacity: isHumanTarget ? 1 : 0.35,
             },
           ],
           {
             duration: flightMs,
             delay,
-            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            easing: 'cubic-bezier(0.2, 0.85, 0.32, 1)',
             fill: 'forwards',
           }
         );
@@ -410,7 +425,10 @@ export class MatchAnimator {
             }
             if (assignedHumanEl) {
               assignedHumanEl.style.visibility = '';
-              this.pulseLanded(assignedHumanEl);
+              assignedHumanEl.classList.add('anim-card-deal-pop');
+              this.trackTimer(() => {
+                assignedHumanEl.classList.remove('anim-card-deal-pop');
+              }, 220, myEpoch);
             }
             proxy.remove();
           })
@@ -420,7 +438,7 @@ export class MatchAnimator {
       });
     }
 
-    const totalDuration = (totalCards - 1) * staggerMs + flightMs + 60;
+    const totalDuration = (totalCards - 1) * staggerMs + flightMs + 80;
     this.trackTimer(() => {
       this.pendingComplete?.();
     }, totalDuration, myEpoch);
