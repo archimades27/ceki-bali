@@ -115,6 +115,12 @@ export class MatchAnimator {
     document.querySelectorAll('.human-hand-row.is-dealing, .table-felt.is-dealing').forEach((el) => {
       el.classList.remove('is-dealing');
     });
+    document.querySelectorAll('.deal-card-back').forEach((el) => el.remove());
+    document
+      .querySelectorAll('.is-deal-facedown, .is-deal-flip-out, .is-deal-flip-in')
+      .forEach((el) => {
+        el.classList.remove('is-deal-facedown', 'is-deal-flip-out', 'is-deal-flip-in');
+      });
 
     this.overlay.innerHTML = '';
     this._isAnimating = false;
@@ -316,175 +322,75 @@ export class MatchAnimator {
   }
 
   /**
-   * One-by-one card dealing animation from stock to all 5 seats (11 cards each = 55 cards),
-   * revealing human hand cards one-by-one as each dealt card lands.
+   * Flips the human player's hand cards from face-down to face-up one by one from left to right.
    */
   runRoundDeal(
-    stockEl: HTMLElement | null,
-    seatTargets: (HTMLElement | null)[],
+    _stockEl: HTMLElement | null,
+    _seatTargets: (HTMLElement | null)[],
     humanHandCards: HTMLElement[] = [],
     onStepSound?: (cardIndex: number) => void,
     onComplete?: () => void
   ): void {
     const myEpoch = this.epoch;
-    if (this.prefersReducedMotion() || !this.hasWaapi() || !stockEl || seatTargets.length === 0) {
-      onComplete?.();
-      return;
-    }
-    const stockRect = stockEl.getBoundingClientRect();
-    if (stockRect.width === 0) {
+    if (humanHandCards.length === 0) {
       onComplete?.();
       return;
     }
 
     this._isAnimating = true;
-    const w = 44;
-    const h = 100;
-    const sx = stockRect.left + stockRect.width / 2 - w / 2;
-    const sy = stockRect.top + stockRect.height / 2 - h / 2;
-
     const handRowEl = document.querySelector('.human-hand-row') as HTMLElement | null;
     if (handRowEl) {
       handRowEl.classList.add('is-dealing');
     }
-    const tableEl = document.querySelector('.table-felt') as HTMLElement | null;
-    if (tableEl) {
-      tableEl.classList.add('is-dealing');
-    }
 
-    // Keep exact left-to-right slot geometry while visually empty (visibility: hidden)
+    // Start all hand cards face-down (card back covering each card)
+    const backCovers: HTMLElement[] = [];
     for (const cardEl of humanHandCards) {
-      cardEl.style.visibility = 'hidden';
-      this.hiddenEls.push(cardEl);
+      cardEl.classList.add('is-deal-facedown');
+      const cover = document.createElement('div');
+      cover.className = 'deal-card-back';
+      const back = renderCardBack('vertical', false);
+      back.style.width = '100%';
+      back.style.height = '100%';
+      cover.appendChild(back);
+      cardEl.appendChild(cover);
+      backCovers.push(cover);
     }
 
-    // Initialize bot card counts to 0 and stock count to 120 so table starts empty
-    const botCounts = new Map<HTMLElement, number>();
-    const setBotCountText = (targetEl: HTMLElement, count: number) => {
-      const sub = targetEl.querySelector('.bot-sub');
-      if (!sub || !sub.textContent) return;
-      sub.textContent = sub.textContent.replace(/\d+\s*kartu/, `${count} kartu`);
-    };
-    seatTargets.forEach((t) => {
-      if (t && !t.classList.contains('human-hand-row')) {
-        botCounts.set(t, 0);
-        setBotCountText(t, 0);
-      }
-    });
-    const stockBadge = stockEl.parentElement?.querySelector('.stock-count-badge') as HTMLElement | null;
-    const finalStockText = stockBadge?.textContent ?? null;
-    let remainingDeck = 120;
-    if (stockBadge) {
-      stockBadge.textContent = String(remainingDeck);
-    }
-
-    const totalRounds = 11;
-    const staggerMs = 55;
-    const flightMs = 260;
-    const totalCards = totalRounds * seatTargets.length;
-    let humanCardIdx = 0;
+    const staggerMs = 85;
+    const halfFlipMs = 110;
 
     this.pendingComplete = () => {
       if (myEpoch !== this.epoch) return;
       this.pendingComplete = null;
-      if (stockBadge && finalStockText !== null) {
-        stockBadge.textContent = finalStockText;
-      }
       this.cleanupVisuals();
       onComplete?.();
     };
 
-    for (let roundIdx = 0; roundIdx < totalRounds; roundIdx++) {
-      seatTargets.forEach((target, seatOrderIdx) => {
-        const cardSeq = roundIdx * seatTargets.length + seatOrderIdx;
-        const delay = cardSeq * staggerMs;
-        const isHumanTarget = target?.classList.contains('human-hand-row') ?? false;
-        const assignedHumanEl = isHumanTarget ? humanHandCards[humanCardIdx++] ?? null : null;
+    humanHandCards.forEach((cardEl, idx) => {
+      const cover = backCovers[idx];
+      const startDelay = idx * staggerMs;
 
-        if (!target) return;
+      this.trackTimer(() => {
+        if (myEpoch !== this.epoch) return;
+        cardEl.classList.add('is-deal-flip-out');
 
         this.trackTimer(() => {
           if (myEpoch !== this.epoch) return;
+          cover.remove();
+          cardEl.classList.remove('is-deal-facedown', 'is-deal-flip-out');
+          cardEl.classList.add('is-deal-flip-in');
+          onStepSound?.(idx);
 
-          const tRect = assignedHumanEl
-            ? assignedHumanEl.getBoundingClientRect()
-            : target.getBoundingClientRect();
-          if (tRect.width === 0) return;
+          this.trackTimer(() => {
+            if (myEpoch !== this.epoch) return;
+            cardEl.classList.remove('is-deal-flip-in');
+          }, halfFlipMs + 30, myEpoch);
+        }, halfFlipMs, myEpoch);
+      }, startDelay, myEpoch);
+    });
 
-          if (stockBadge) {
-            remainingDeck = Math.max(0, remainingDeck - 1);
-            stockBadge.textContent = String(remainingDeck);
-          }
-
-          const tx = tRect.left + tRect.width / 2 - w / 2;
-          const ty = tRect.top + tRect.height / 2 - h / 2;
-
-          const proxy = document.createElement('div');
-          proxy.className = 'anim-proxy-mover';
-          proxy.style.width = `${w}px`;
-          proxy.style.height = `${h}px`;
-          proxy.style.opacity = '0';
-          const back = renderCardBack('vertical', false);
-          back.style.width = '100%';
-          back.style.height = '100%';
-          proxy.appendChild(back);
-          this.overlay.appendChild(proxy);
-
-          if (onStepSound && cardSeq % 2 === 0) {
-            onStepSound(cardSeq);
-          }
-
-          const startRot = (seatOrderIdx - 2) * 5;
-          const anim = proxy.animate(
-            [
-              {
-                transform: `translate3d(${sx}px, ${sy}px, 0) scale(0.88) rotate(${startRot}deg)`,
-                opacity: 0.98,
-              },
-              {
-                transform: `translate3d(${(sx + tx) / 2}px, ${(sy + ty) / 2 - 14}px, 0) scale(1.0) rotate(${startRot * 0.35}deg)`,
-                opacity: 1,
-                offset: 0.55,
-              },
-              {
-                transform: `translate3d(${tx}px, ${ty}px, 0) scale(${isHumanTarget ? 0.96 : 0.78}) rotate(0deg)`,
-                opacity: isHumanTarget ? 1 : 0.9,
-              },
-            ],
-            {
-              duration: flightMs,
-              easing: 'cubic-bezier(0.2, 0.85, 0.32, 1)',
-              fill: 'forwards',
-            }
-          );
-          this.activeAnims.push(anim);
-          anim.finished
-            .then(() => {
-              if (myEpoch !== this.epoch) {
-                proxy.remove();
-                return;
-              }
-              if (assignedHumanEl) {
-                assignedHumanEl.style.visibility = '';
-                assignedHumanEl.classList.add('anim-card-deal-pop');
-                this.trackTimer(() => {
-                  assignedHumanEl.classList.remove('anim-card-deal-pop');
-                }, 220, myEpoch);
-              } else if (botCounts.has(target)) {
-                const nextCount = (botCounts.get(target) ?? 0) + 1;
-                botCounts.set(target, nextCount);
-                setBotCountText(target, nextCount);
-              }
-              proxy.remove();
-            })
-            .catch(() => {
-              proxy.remove();
-            });
-        }, delay, myEpoch);
-      });
-    }
-
-    const totalDuration = (totalCards - 1) * staggerMs + flightMs + 100;
+    const totalDuration = (humanHandCards.length - 1) * staggerMs + halfFlipMs * 2 + 80;
     this.trackTimer(() => {
       this.pendingComplete?.();
     }, totalDuration, myEpoch);

@@ -3212,24 +3212,55 @@ body {
   white-space: nowrap;
 }
 
-.table-felt.is-dealing .discard-pile .classic-card,
-.table-felt.is-dealing .pile-count-badge,
-.table-felt.is-dealing .bot-exposed-row {
-  visibility: hidden !important;
+.deal-card-back {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.classic-card.is-deal-facedown {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45) !important;
+}
+
+@keyframes dealFlipOut {
+  0% {
+    transform: perspective(600px) rotateY(0deg) scale(1);
+  }
+  100% {
+    transform: perspective(600px) rotateY(90deg) scale(1.06);
+  }
+}
+
+@keyframes dealFlipIn {
+  0% {
+    transform: perspective(600px) rotateY(-90deg) scale(1.06);
+  }
+  100% {
+    transform: perspective(600px) rotateY(0deg) scale(1);
+  }
+}
+
+.classic-card.is-deal-flip-out {
+  animation: dealFlipOut 110ms ease-in forwards;
+}
+
+.classic-card.is-deal-flip-in {
+  animation: dealFlipIn 130ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .human-hand-row.is-dealing .hand-meld-group {
   border-color: transparent !important;
   background: transparent !important;
   box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
 }
 
 .human-hand-row.is-dealing .meld-type-caption,
 .human-hand-row.is-dealing .meld-fire-flames,
 .human-hand-row.is-dealing .meld-formed-badge {
-  display: none !important;
+  opacity: 0 !important;
 }
 
 @keyframes cardDealPop {
