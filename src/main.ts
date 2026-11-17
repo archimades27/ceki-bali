@@ -4,6 +4,8 @@ import { CARD_DEFS } from './game/deck.ts';
 import {
   acceptPendingDrawnCard,
   cancelNgejuk,
+  canDiscardCardFromHand,
+  canDiscardPendingCard,
   declareCeki,
   discardCard,
   discardPendingDrawnCard,
@@ -24,7 +26,7 @@ import {
   getNyagaWaits,
   getReadyStatus,
 } from './game/melds.ts';
-import type { CardInstance, GameState, Meld, MeldType } from './game/types.ts';
+import type { CardInstance, GameState, Meld, MeldType, Player } from './game/types.ts';
 import { sfx } from './ui/audio.ts';
 import { preloadCardAssets, renderCardBack, renderClassicCard } from './ui/cardRenderer.ts';
 import { DeckInputController } from './ui/gamepad.ts';
@@ -166,6 +168,10 @@ function applyRoomPayload(payload: RoomStatePayload): void {
   }
 
   render();
+
+  if (payload.lastEvent?.type === 'start_round') {
+    triggerRoundDealAnimation();
+  }
 }
 
 const lanHost = new LanHostController(
@@ -861,8 +867,37 @@ function handleHumanNgejuk(): void {
   dispatchAction({ type: 'ngejuk' });
 }
 
+function decorateExposedHandCard(
+  cardEl: HTMLElement,
+  cardId: string,
+  player: Player,
+  canDiscardPhase: boolean
+): void {
+  if (!(player.exposedCardIds ?? []).includes(cardId)) return;
+  cardEl.classList.add('is-exposed-ngejuk');
+  const allowedToDiscard = canDiscardCardFromHand(player, cardId, state.playStyle);
+  if (canDiscardPhase && !allowedToDiscard) {
+    cardEl.classList.add('is-discard-locked');
+  }
+  const badge = document.createElement('span');
+  badge.className = 'exposed-ngejuk-badge';
+  badge.textContent = allowedToDiscard ? 'TERBUKA • NYARI' : 'TERBUKA';
+  cardEl.appendChild(badge);
+  cardEl.title = allowedToDiscard
+    ? 'Kartu Ngejuk terbuka — boleh dibuang sekarang karena menghasilkan Nyari'
+    : 'Kartu Ngejuk terbuka (dilihat semua pemain) — tidak boleh dibuang kecuali untuk Nyari';
+}
+
 function handleHumanDiscard(cardId: string): void {
   if (state.phase !== 'awaiting_discard' || state.currentPlayerIndex !== mySeatIndex()) return;
+  const me = state.players[mySeatIndex()];
+  if (me && !canDiscardCardFromHand(me, cardId, state.playStyle)) {
+    const notice = document.getElementById('turn-prompt');
+    if (notice) {
+      notice.textContent = '⚠ Kartu Ngejuk terbuka tidak boleh dibuang kecuali untuk Nyari!';
+    }
+    return;
+  }
   dispatchAction({ type: 'discard_hand', cardId });
 }
 
@@ -1076,10 +1111,21 @@ function resetSoloTurnTimer(): void {
     }
     if (state.phase === 'awaiting_discard') {
       if (state.pendingDrawnCard) {
-        dispatchAction({ type: 'discard_pending' });
+        if (canDiscardPendingCard(state)) {
+          dispatchAction({ type: 'discard_pending' });
+        } else {
+          dispatchAction({ type: 'accept_pending' });
+          const me = state.players[0];
+          const recId =
+            getRecommendedDiscardId(me.hand, state.playStyle, me.exposedCardIds ?? []) ??
+            me.hand[0]?.id;
+          if (recId) dispatchAction({ type: 'discard_hand', cardId: recId });
+        }
       } else {
-        const hand = state.players[0].hand;
-        const recId = getRecommendedDiscardId(hand, state.playStyle) ?? hand[0]?.id;
+        const me = state.players[0];
+        const recId =
+          getRecommendedDiscardId(me.hand, state.playStyle, me.exposedCardIds ?? []) ??
+          me.hand[0]?.id;
         if (recId) dispatchAction({ type: 'discard_hand', cardId: recId });
       }
     }
@@ -1097,6 +1143,25 @@ function updateTurnTimerBadge(): void {
 }
 
 window.setInterval(updateTurnTimerBadge, 1000);
+
+function triggerRoundDealAnimation(onComplete?: () => void): void {
+  const stockEl = document.querySelector('[data-anim-anchor="stock"]') as HTMLElement | null;
+  const mySeat = mySeatIndex();
+  const count = state.players.length || 5;
+  const targets: (HTMLElement | null)[] = [];
+  for (let offset = 0; offset < count; offset++) {
+    const seatIdx = (state.currentPlayerIndex + count - offset) % count;
+    if (seatIdx === mySeat) {
+      targets.push(document.querySelector('.human-hand-row') as HTMLElement | null);
+    } else {
+      targets.push(document.querySelector(`[data-anim-anchor="seat-${seatIdx}"]`) as HTMLElement | null);
+    }
+  }
+  const humanCards = Array.from(
+    document.querySelectorAll('.human-hand-row .classic-card')
+  ) as HTMLElement[];
+  animator.runRoundDeal(stockEl, targets, humanCards, () => sfx.playDraw(), onComplete);
+}
 
 function startRoundWithDeal(): void {
   if (isMultiplayer()) {
@@ -1117,16 +1182,7 @@ function startRoundWithDeal(): void {
   resetSoloTurnTimer();
   render();
 
-  const stockEl = document.querySelector('[data-anim-anchor="stock"]') as HTMLElement | null;
-  const targets = [
-    document.querySelector('[data-anim-anchor="seat-1"]') as HTMLElement | null,
-    document.querySelector('[data-anim-anchor="seat-2"]') as HTMLElement | null,
-    document.querySelector('[data-anim-anchor="seat-3"]') as HTMLElement | null,
-    document.querySelector('[data-anim-anchor="seat-4"]') as HTMLElement | null,
-    document.querySelector('.human-hand-row') as HTMLElement | null,
-  ];
-  animator.runRoundDeal(stockEl, targets);
-  window.setTimeout(() => scheduleBotTurnIfNeeded(), 650);
+  triggerRoundDealAnimation(() => scheduleBotTurnIfNeeded());
 }
 
 function getDiscardCounts(): Map<string, number> {
@@ -1280,7 +1336,11 @@ function renderBotSeat(
     </div>
   `;
 
-  // Only show bot badge + discarded cards to the RIGHT of the player (no opponent hand cards)
+  // Only show bot badge + exposed Ngejuk cards (jukjukan) + discarded cards to the RIGHT
+  const exposedCards = (player.exposedCardIds ?? [])
+    .map((id) => player.hand.find((c) => c.id === id))
+    .filter((c): c is CardInstance => Boolean(c));
+
   const rightDiscards = renderPlayerRightDiscards(
     playerIdx,
     canDraw,
@@ -1288,7 +1348,24 @@ function renderBotSeat(
     discardCounts,
     neededKeys
   );
-  seat.append(badge, rightDiscards);
+
+  if (exposedCards.length > 0 && state.phase !== 'round_over') {
+    const exposedRow = document.createElement('div');
+    exposedRow.className = 'bot-exposed-row';
+    exposedRow.title = 'Kartu Jukjukan (hasil Ngejuk, terbuka untuk semua pemain)';
+    const lbl = document.createElement('span');
+    lbl.className = 'bot-exposed-label';
+    lbl.textContent = 'Jukjukan';
+    const cardsBox = document.createElement('div');
+    cardsBox.className = 'bot-exposed-cards';
+    for (const ec of exposedCards) {
+      cardsBox.appendChild(renderClassicCard(ec.key, { small: true }));
+    }
+    exposedRow.append(lbl, cardsBox);
+    seat.append(badge, exposedRow, rightDiscards);
+  } else {
+    seat.append(badge, rightDiscards);
+  }
 
   return seat;
 }
@@ -1943,11 +2020,15 @@ function render(): void {
     takeBtn.textContent = '✓ Ambil';
     takeBtn.addEventListener('click', handleAcceptPendingCard);
 
+    const canDropPending = canDiscardPendingCard(state);
     const dropBtn = document.createElement('button');
     dropBtn.className = 'btn btn-action btn-pending-choice';
     dropBtn.dataset.focusId = 'drop-pending-btn';
-    dropBtn.disabled = locked;
+    dropBtn.disabled = locked || !canDropPending;
     dropBtn.textContent = '✕ Buang';
+    if (!canDropPending && state.lastDrawSource === 'ngejuk') {
+      dropBtn.title = 'Kartu Ngejuk tidak boleh dibuang kecuali untuk Nyari';
+    }
     dropBtn.addEventListener('click', handleDiscardPendingCard);
 
     pendingBtns.append(takeBtn, dropBtn);
@@ -1966,7 +2047,7 @@ function render(): void {
 
   const recommendedDiscardId =
     showHints && canDiscardFromHand && !canCeki
-      ? getRecommendedDiscardId(human.hand, state.playStyle)
+      ? getRecommendedDiscardId(human.hand, state.playStyle, human.exposedCardIds ?? [])
       : null;
 
   const bottomRow = document.createElement('div');
@@ -2054,6 +2135,7 @@ function render(): void {
         }
       }
       cardEl.dataset.cardId = card.id;
+      decorateExposedHandCard(cardEl, card.id, human, canDiscardFromHand);
       attachHandCardInteractions(cardEl, card.id, canDiscardFromHand);
       handRow.appendChild(cardEl);
     });
@@ -2077,6 +2159,7 @@ function render(): void {
         clickable: !locked && (canDiscardFromHand || moveMode),
       });
       newEl.dataset.cardId = newCard.id;
+      decorateExposedHandCard(newEl, newCard.id, human, canDiscardFromHand);
       attachHandCardInteractions(newEl, newCard.id, canDiscardFromHand);
       handRow.appendChild(newEl);
     }
@@ -2113,6 +2196,7 @@ function render(): void {
           clickable: !locked && (canDiscardFromHand || moveMode),
         });
         cardEl.dataset.cardId = card.id;
+        decorateExposedHandCard(cardEl, card.id, human, canDiscardFromHand);
         attachHandCardInteractions(cardEl, card.id, canDiscardFromHand);
         groupCards.appendChild(cardEl);
       });
@@ -2157,6 +2241,7 @@ function render(): void {
         clickable: !locked && (canDiscardFromHand || moveMode),
       });
       cardEl.dataset.cardId = card.id;
+      decorateExposedHandCard(cardEl, card.id, human, canDiscardFromHand);
       attachHandCardInteractions(cardEl, card.id, canDiscardFromHand);
       handRow.appendChild(cardEl);
     }

@@ -44,14 +44,14 @@ const STEPS: TutorialStep[] = [
   {
     title: 'Giliran Anda: Ambil atau Ngejuk',
     subtitle: 'Langkah 3 dari 5 — Mendapat Kartu ke-12',
-    body: 'Pada giliran Anda, ambil 1 kartu terlebih dahulu: klik "Ambil" (atau tumpukan tengah) untuk mengambil kartu baru, ATAU klik "Ngejuk" untuk mengambil kartu buangan terakhir yang menyala emas.',
+    body: 'Pada giliran Anda, ambil 1 kartu terlebih dahulu: klik "Ambil" (tumpukan tengah), ATAU klik "Ngejuk" untuk mengambil kartu buangan terakhir. Kartu hasil Ngejuk (Jukjukan) harus tetap TERBUKA agar dilihat semua pemain, dan tidak boleh dibuang kecuali untuk Nyari.',
     showcaseTitle: 'Contoh: Ngejuk Kartu Buangan untuk Melengkapi Serigat',
     cards: [
       { key: 'tong1', caption: 'Gunung' },
       { key: 'sok1', caption: 'Jarum' },
       { key: 'ban1', caption: 'Ngejuk Jebung 3!' },
     ],
-    tip: 'Kartu yang baru diambil muncul di atas pegangan Anda dengan pilihan "Ambil ke Tangan" atau "Buang Langsung".',
+    tip: 'Aturan Ngutang-Ngejuk: Anda tidak boleh mengejuk kartu yang sama persis dengan kartu yang baru saja Anda buang pada giliran sebelumnya.',
   },
   {
     title: 'Buang Kartu & Posisi Nyari',

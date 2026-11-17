@@ -2,6 +2,7 @@ import { decideBotDiscard, decideBotDraw } from '../game/bot.ts';
 import {
   acceptPendingDrawnCard,
   cancelNgejuk,
+  canDiscardPendingCard,
   createInitialPlayers,
   declareCeki,
   discardCard,
@@ -291,7 +292,9 @@ export class LanHostController {
         }
         return {
           ...p,
-          hand: p.hand.map((_, cIdx) => hiddenCard(cIdx, idx)),
+          hand: p.hand.map((c, cIdx) =>
+            p.exposedCardIds?.includes(c.id) ? c : hiddenCard(cIdx, idx)
+          ),
         };
       }),
     };
@@ -557,11 +560,25 @@ export class LanHostController {
         }
       } else if (this.state.phase === 'awaiting_discard') {
         if (this.state.pendingDrawnCard) {
-          this.state = discardPendingDrawnCard(this.state);
-          eventType = 'discard_pending';
+          if (canDiscardPendingCard(this.state)) {
+            this.state = discardPendingDrawnCard(this.state);
+            eventType = 'discard_pending';
+          } else {
+            this.state = acceptPendingDrawnCard(this.state, false);
+            const p = this.state.players[expectedPlayer];
+            const recId =
+              getRecommendedDiscardId(p.hand, this.state.playStyle, p.exposedCardIds ?? []) ??
+              p.hand[0]?.id;
+            if (recId) {
+              this.state = discardCard(this.state, recId, true);
+              eventType = 'discard_hand';
+            }
+          }
         } else {
           const p = this.state.players[expectedPlayer];
-          const recId = getRecommendedDiscardId(p.hand, this.state.playStyle) ?? p.hand[0]?.id;
+          const recId =
+            getRecommendedDiscardId(p.hand, this.state.playStyle, p.exposedCardIds ?? []) ??
+            p.hand[0]?.id;
           if (recId) {
             this.state = discardCard(this.state, recId, true);
             eventType = 'discard_hand';

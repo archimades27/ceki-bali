@@ -47,6 +47,8 @@ export interface Player {
   avatarText: string;
   statusText: string;
   readyMode?: 'mecari' | 'mejaga' | null;
+  exposedCardIds?: string[];
+  lastDiscardedKey?: CardKey | null;
 }
 
 export type TurnPhase = 'awaiting_draw' | 'awaiting_discard' | 'bot_thinking' | 'round_over';

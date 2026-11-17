@@ -75,10 +75,44 @@ export function getNgejukTarget(state: GameState): {
   if (state.lastDiscardPlayerIndex === null) return null;
   const sourcePlayer = state.players[state.lastDiscardPlayerIndex];
   if (!sourcePlayer || sourcePlayer.discards.length === 0) return null;
+  const topCard = sourcePlayer.discards[sourcePlayer.discards.length - 1];
+  const currentPlayer = state.players[state.currentPlayerIndex];
+  // Ngutang-Ngejuk: tidak boleh mengejuk kartu yang sama persis dengan yang baru saja dibuang sendiri
+  if (currentPlayer?.lastDiscardedKey && currentPlayer.lastDiscardedKey === topCard.key) {
+    return null;
+  }
   return {
     playerIndex: state.lastDiscardPlayerIndex,
-    card: sourcePlayer.discards[sourcePlayer.discards.length - 1],
+    card: topCard,
   };
+}
+
+/**
+ * Returns true if the player is allowed to discard `cardId` from their hand.
+ * Cards taken via Ngejuk (jukjukan) stay open and cannot be discarded unless
+ * discarding them puts/keeps the player in Nyari (Mecari / Mejaga).
+ */
+export function canDiscardCardFromHand(
+  player: Player,
+  cardId: string,
+  playStyle: PlayStyle = 'nyari'
+): boolean {
+  const exposed = player.exposedCardIds ?? [];
+  if (!exposed.includes(cardId)) return true;
+  const remaining = player.hand.filter((c) => c.id !== cardId);
+  return getReadyStatus(remaining, playStyle).mode !== null;
+}
+
+/**
+ * Returns true if the active player can immediately discard `pendingDrawnCard`.
+ * A pending card drawn via Ngejuk cannot be discarded unless the remaining 11 cards are Nyari.
+ */
+export function canDiscardPendingCard(state: GameState): boolean {
+  if (!state.pendingDrawnCard) return false;
+  if (state.lastDrawSource !== 'ngejuk') return true;
+  const activePlayer = state.players[state.currentPlayerIndex];
+  if (!activePlayer) return false;
+  return getReadyStatus(activePlayer.hand, state.playStyle).mode !== null;
 }
 
 export function startNewRound(
@@ -91,13 +125,15 @@ export function startNewRound(
   // Randomize starting player at round spawn
   const playerCount = customPlayers?.length ?? existingState?.players.length ?? 5;
   const startPlayerIndex = Math.floor(Math.random() * playerCount);
-  const prevPlayerIndex = (startPlayerIndex + playerCount - 1) % playerCount;
+  const prevPlayerIndex = (startPlayerIndex + 1) % playerCount;
 
   const basePlayers = customPlayers
     ? customPlayers.map((p, idx) => ({
         ...p,
         hand: [],
         discards: [],
+        exposedCardIds: [],
+        lastDiscardedKey: null,
         statusText: idx === startPlayerIndex ? 'Giliran' : 'Menunggu',
       }))
     : existingState
@@ -105,10 +141,14 @@ export function startNewRound(
           ...p,
           hand: [],
           discards: [],
+          exposedCardIds: [],
+          lastDiscardedKey: null,
           statusText: idx === startPlayerIndex ? (p.isHuman ? 'Giliran Anda' : 'Giliran') : 'Menunggu',
         }))
       : createInitialPlayers().map((p, idx) => ({
           ...p,
+          exposedCardIds: [],
+          lastDiscardedKey: null,
           statusText: idx === startPlayerIndex ? (p.isHuman ? 'Giliran Anda' : 'Giliran') : 'Menunggu',
         }));
   const players: Player[] = basePlayers;
@@ -186,7 +226,7 @@ function checkKupakNyariWinner(
 ): GameState | null {
   const count = state.players.length;
   for (let offset = 1; offset < count; offset++) {
-    const idx = (openerIdx + offset) % count;
+    const idx = (openerIdx + count - offset) % count;
     const candidate = state.players[idx];
     if (!candidate || candidate.hand.length !== 11) continue;
     const winRes = checkWinWithCard(candidate.hand, openedCard, state.playStyle);
@@ -301,10 +341,14 @@ export function ngejukDiscard(state: GameState): GameState {
       return idx === target.playerIndex ? { ...p, discards: nextDiscards } : p;
     }
     const nextHand = p.isHuman ? p.hand : [...p.hand, taken];
+    const nextExposed = p.isHuman
+      ? p.exposedCardIds ?? []
+      : [...(p.exposedCardIds ?? []), taken.id];
     return {
       ...p,
       hand: nextHand,
       discards: nextDiscards,
+      exposedCardIds: nextExposed,
       readyMode: p.isHuman ? p.readyMode : null,
       statusText: 'Ngejuk!',
     };
@@ -387,10 +431,14 @@ export function acceptPendingDrawnCard(
     return state;
   }
   const drawn = state.pendingDrawnCard;
+  const isNgejuk = state.lastDrawSource === 'ngejuk';
   const updatedPlayers = state.players.map((p, idx) => {
     if (idx !== activeIdx) return p;
     const nextHand = preserveHumanOrder ? [...p.hand, drawn] : sortHand([...p.hand, drawn]);
-    return { ...p, hand: nextHand, readyMode: null };
+    const nextExposed = isNgejuk
+      ? [...(p.exposedCardIds ?? []), drawn.id]
+      : p.exposedCardIds ?? [];
+    return { ...p, hand: nextHand, exposedCardIds: nextExposed, readyMode: null };
   });
   return {
     ...state,
@@ -407,12 +455,13 @@ export function discardPendingDrawnCard(state: GameState): GameState {
   if (
     state.phase !== 'awaiting_discard' ||
     !activePlayer?.isHuman ||
-    !state.pendingDrawnCard
+    !state.pendingDrawnCard ||
+    !canDiscardPendingCard(state)
   ) {
     return state;
   }
   const cardToDiscard = state.pendingDrawnCard;
-  const nextPlayerIdx = (activeIdx + 1) % state.players.length;
+  const nextPlayerIdx = (activeIdx + state.players.length - 1) % state.players.length;
   const nextPlayer = state.players[nextPlayerIdx];
   const ready = getReadyStatus(activePlayer.hand, state.playStyle);
   const waits = ready.waits;
@@ -422,6 +471,7 @@ export function discardPendingDrawnCard(state: GameState): GameState {
       return {
         ...p,
         discards: [...p.discards, cardToDiscard],
+        lastDiscardedKey: cardToDiscard.key,
         readyMode: ready.mode,
         statusText:
           ready.mode === 'mejaga'
@@ -534,12 +584,13 @@ export function discardCard(
   const player = state.players[playerIdx];
   const cardToDiscard = player.hand.find((c) => c.id === cardId);
   if (!cardToDiscard) return state;
+  if (!canDiscardCardFromHand(player, cardId, state.playStyle)) return state;
 
   const nextHand = player.hand.filter((c) => c.id !== cardId);
   const ready = getReadyStatus(nextHand, state.playStyle);
   const waits = ready.waits;
 
-  const nextPlayerIdx = (playerIdx + 1) % state.players.length;
+  const nextPlayerIdx = (playerIdx + state.players.length - 1) % state.players.length;
   const nextPlayer = state.players[nextPlayerIdx];
 
   const updatedPlayers = state.players.map((p, idx) => {
@@ -548,6 +599,8 @@ export function discardCard(
         ...p,
         hand: p.isHuman && !preserveHumanOrder ? sortHand(nextHand) : nextHand,
         discards: [...p.discards, cardToDiscard],
+        exposedCardIds: (p.exposedCardIds ?? []).filter((id) => id !== cardId),
+        lastDiscardedKey: cardToDiscard.key,
         readyMode: ready.mode,
         statusText:
           ready.mode === 'mejaga'
@@ -695,22 +748,27 @@ export function declareCeki(state: GameState, playerIndex = state.currentPlayerI
  */
 export function getRecommendedDiscardId(
   hand12: CardInstance[],
-  playStyle: PlayStyle = 'nyari'
+  playStyle: PlayStyle = 'nyari',
+  exposedCardIds: string[] = []
 ): string | null {
   if (hand12.length !== 12) return null;
-  let bestId = hand12[0].id;
+  let bestId: string | null = null;
   let bestScore = -Infinity;
 
   for (let i = 0; i < hand12.length; i++) {
+    const candidate = hand12[i];
     const remaining11 = hand12.filter((_, idx) => idx !== i);
+    if (exposedCardIds.includes(candidate.id) && getReadyStatus(remaining11, playStyle).mode === null) {
+      continue;
+    }
     let score = evaluateHandScore(remaining11, playStyle);
     if (getNyagaWaits(remaining11, playStyle).length > 0) {
       score += 500;
     }
     if (score > bestScore) {
       bestScore = score;
-      bestId = hand12[i].id;
+      bestId = candidate.id;
     }
   }
-  return bestId;
+  return bestId ?? hand12[0].id;
 }

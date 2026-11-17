@@ -5,6 +5,8 @@ import { decideBotDiscard, decideBotDraw } from '../src/game/bot.ts';
 import {
   acceptPendingDrawnCard,
   cancelNgejuk,
+  canDiscardCardFromHand,
+  canDiscardPendingCard,
   declareCeki,
   discardCard,
   discardPendingDrawnCard,
@@ -177,16 +179,16 @@ for (let step = 0; step < 30 && state.phase !== 'round_over'; step++) {
   const discardWithPending = discardCard(guardState, guardState.players[0].hand[0].id);
   assert.equal(discardWithPending, guardState, 'Discard from hand while pending card exists must be no-op');
 
-  // Accept pending -> discard valid card -> transitions to bot 1 (botStep: draw)
+  // Accept pending -> discard valid card -> transitions to bot 4 (counter-clockwise, botStep: draw)
   guardState = acceptPendingDrawnCard(guardState);
   assert.equal(guardState.players[0].hand.length, 12);
   guardState = discardCard(guardState, guardState.players[0].hand[0].id);
-  assert.equal(guardState.currentPlayerIndex, 1);
+  assert.equal(guardState.currentPlayerIndex, 4);
   assert.equal(guardState.phase, 'bot_thinking');
   assert.equal(guardState.botStep, 'draw');
 
   // Bot cannot discard before drawing
-  const botEarlyDiscard = discardCard(guardState, guardState.players[1].hand[0].id);
+  const botEarlyDiscard = discardCard(guardState, guardState.players[4].hand[0].id);
   assert.equal(botEarlyDiscard, guardState, 'Bot discard during draw step must be no-op');
 
   // Bot draws (or ngejuks) -> transitions to botStep: discard
@@ -194,19 +196,19 @@ for (let step = 0; step < 30 && state.phase !== 'round_over'; step++) {
   guardState = drawFromStock(guardState);
   assert.equal(guardState.stock.length, stockBeforeBot - 1);
   assert.equal(guardState.botStep, 'discard');
-  assert.equal(guardState.players[1].hand.length, 12);
+  assert.equal(guardState.players[4].hand.length, 12);
 
   // Bot cannot draw twice
   assert.equal(drawFromStock(guardState), guardState, 'Bot double draw must be no-op');
 
-  // Bot discards -> transitions to player 2 (botStep: draw)
-  guardState = discardCard(guardState, guardState.players[1].hand[0].id);
-  assert.equal(guardState.currentPlayerIndex, 2);
+  // Bot discards -> transitions to player 3 (counter-clockwise, botStep: draw)
+  guardState = discardCard(guardState, guardState.players[4].hand[0].id);
+  assert.equal(guardState.currentPlayerIndex, 3);
   assert.equal(guardState.phase, 'bot_thinking');
   assert.equal(guardState.botStep, 'draw');
 
   // Declare Ceki with invalid 11-card hand or wrong player -> must be no-op
-  assert.equal(declareCeki(guardState, 2), guardState, 'Declare Ceki during draw step must be no-op');
+  assert.equal(declareCeki(guardState, 3), guardState, 'Declare Ceki during draw step must be no-op');
   assert.equal(declareCeki(guardState, 0), guardState, 'Declare Ceki by non-current player must be no-op');
 }
 
@@ -362,7 +364,7 @@ for (let step = 0; step < 30 && state.phase !== 'round_over'; step++) {
 {
   const randRound = startNewRound(undefined, 'nyari');
   assert.ok(randRound.currentPlayerIndex >= 0 && randRound.currentPlayerIndex < 5);
-  const expectedPrev = (randRound.currentPlayerIndex + 4) % 5;
+  const expectedPrev = (randRound.currentPlayerIndex + 1) % 5;
   assert.equal(randRound.lastDiscardPlayerIndex, expectedPrev);
   assert.equal(randRound.players[expectedPrev].discards.length, 1);
 
@@ -415,6 +417,76 @@ for (let step = 0; step < 30 && state.phase !== 'round_over'; step++) {
   };
   discardNoWin = discardCard(discardNoWin, discardCardObj.id);
   assert.notEqual(discardNoWin.phase, 'round_over', 'Discarding a card from hand must NEVER trigger Ngenen/Kupak');
+
+  // 14. Ngejuk Jukjukan (exposed open card) + cannot discard unless Nyari + Ngutang-Ngejuk
+  const exposedNgejukCard = makeCard('ban9', 3);
+  const nonNyariHand11 = [
+    makeCard('tong1', 1), makeCard('tong2', 1), makeCard('tong3', 1),
+    makeCard('sok4', 1), makeCard('sok5', 1), makeCard('sok6', 1),
+    makeCard('ban1', 1), makeCard('ban3', 1), makeCard('ban5', 1),
+    makeCard('white_flower', 1), makeCard('red_flower', 1),
+  ];
+  let jukState = startNewRound(undefined, 'nyari');
+  jukState = {
+    ...jukState,
+    currentPlayerIndex: 0,
+    phase: 'awaiting_draw',
+    lastDiscardPlayerIndex: 4,
+    players: jukState.players.map((p, idx) =>
+      idx === 0
+        ? { ...p, hand: nonNyariHand11, exposedCardIds: [], lastDiscardedKey: null }
+        : idx === 4
+          ? { ...p, discards: [exposedNgejukCard] }
+          : p
+    ),
+  };
+
+  // Human Ngejuks ban9_3
+  jukState = ngejukDiscard(jukState);
+  assert.equal(jukState.lastDrawSource, 'ngejuk');
+  assert.equal(jukState.pendingDrawnCard?.id, exposedNgejukCard.id);
+  // Cannot immediately discard pending ngejuk card when not Nyari
+  assert.equal(canDiscardPendingCard(jukState), false, 'Pending ngejuk card cannot be discarded unless Nyari');
+  const blockedPendingDrop = discardPendingDrawnCard(jukState);
+  assert.equal(blockedPendingDrop.pendingDrawnCard?.id, exposedNgejukCard.id);
+
+  // Accept into hand -> stays open in exposedCardIds
+  jukState = acceptPendingDrawnCard(jukState, true);
+  assert.ok(jukState.players[0].exposedCardIds?.includes(exposedNgejukCard.id), 'Ngejuk card must remain exposed/open');
+  assert.equal(canDiscardCardFromHand(jukState.players[0], exposedNgejukCard.id, 'nyari'), false);
+  const blockedHandDrop = discardCard(jukState, exposedNgejukCard.id);
+  assert.equal(blockedHandDrop.players[0].hand.length, 12, 'Must NOT discard exposed Ngejuk card when not Nyari');
+
+  // When remaining 11 cards ARE Nyari, discarding the exposed Ngejuk card IS allowed and clears exposedCardIds
+  let nyariJukState = startNewRound(undefined, 'nyari');
+  nyariJukState = {
+    ...nyariJukState,
+    currentPlayerIndex: 0,
+    phase: 'awaiting_discard',
+    pendingDrawnCard: null,
+    players: nyariJukState.players.map((p, idx) =>
+      idx === 0
+        ? { ...p, hand: [...mejaga11, exposedNgejukCard], exposedCardIds: [exposedNgejukCard.id] }
+        : p
+    ),
+  };
+  assert.equal(canDiscardCardFromHand(nyariJukState.players[0], exposedNgejukCard.id, 'nyari'), true);
+  nyariJukState = discardCard(nyariJukState, exposedNgejukCard.id);
+  assert.equal(nyariJukState.players[0].hand.length, 11, 'Exposed Ngejuk card CAN be discarded when it produces Nyari');
+  assert.equal(nyariJukState.players[0].exposedCardIds?.includes(exposedNgejukCard.id), false);
+
+  // Ngutang-Ngejuk: player 0 just discarded ban9, so player 0 cannot Ngejuk another ban9 on their next turn
+  const anotherBan9 = makeCard('ban9', 4);
+  const ngutangState = {
+    ...nyariJukState,
+    currentPlayerIndex: 0,
+    phase: 'awaiting_draw' as const,
+    lastDiscardPlayerIndex: 4,
+    players: nyariJukState.players.map((p, idx) =>
+      idx === 4 ? { ...p, discards: [anotherBan9] } : p
+    ),
+  };
+  assert.equal(getNgejukTarget(ngutangState), null, 'Ngutang-Ngejuk: cannot Ngejuk the same card key just discarded');
 }
 
 console.log('All 5-player Ceki Bali (Soca/Serigat/Nyari) tests passed!');

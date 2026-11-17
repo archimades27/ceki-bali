@@ -306,28 +306,66 @@ export class MatchAnimator {
   }
 
   /**
-   * Brief non-blocking card dealing burst from stock to all 5 seats (total <= 680ms).
+   * One-by-one card dealing animation from stock to all 5 seats (11 cards each = 55 cards),
+   * revealing human hand cards one-by-one as each dealt card lands.
    */
-  runRoundDeal(stockEl: HTMLElement | null, seatTargets: (HTMLElement | null)[]): void {
-    if (this.prefersReducedMotion() || !this.hasWaapi() || !stockEl) return;
-    const stockRect = stockEl.getBoundingClientRect();
-    if (stockRect.width === 0) return;
-
+  runRoundDeal(
+    stockEl: HTMLElement | null,
+    seatTargets: (HTMLElement | null)[],
+    humanHandCards: HTMLElement[] = [],
+    onStepSound?: (cardIndex: number) => void,
+    onComplete?: () => void
+  ): void {
     const myEpoch = this.epoch;
-    const w = 44;
-    const h = 102;
+    if (this.prefersReducedMotion() || !this.hasWaapi() || !stockEl || seatTargets.length === 0) {
+      onComplete?.();
+      return;
+    }
+    const stockRect = stockEl.getBoundingClientRect();
+    if (stockRect.width === 0) {
+      onComplete?.();
+      return;
+    }
+
+    this._isAnimating = true;
+    const w = 40;
+    const h = 92;
     const sx = stockRect.left + stockRect.width / 2 - w / 2;
     const sy = stockRect.top + stockRect.height / 2 - h / 2;
 
-    seatTargets.forEach((target, idx) => {
-      if (!target) return;
-      const tRect = target.getBoundingClientRect();
-      if (tRect.width === 0) return;
-      const tx = tRect.left + tRect.width / 2 - w / 2;
-      const ty = tRect.top + tRect.height / 2 - h / 2;
-      const delay = idx * 75;
+    // Hide human hand cards until their corresponding card lands
+    for (const cardEl of humanHandCards) {
+      cardEl.style.visibility = 'hidden';
+      this.hiddenEls.push(cardEl);
+    }
 
-      for (let copy = 0; copy < 2; copy++) {
+    const totalRounds = 11;
+    const staggerMs = 28;
+    const flightMs = 170;
+    const totalCards = totalRounds * seatTargets.length;
+    let humanCardIdx = 0;
+
+    this.pendingComplete = () => {
+      if (myEpoch !== this.epoch) return;
+      this.pendingComplete = null;
+      this.cleanupVisuals();
+      onComplete?.();
+    };
+
+    for (let roundIdx = 0; roundIdx < totalRounds; roundIdx++) {
+      seatTargets.forEach((target, seatOrderIdx) => {
+        const cardSeq = roundIdx * seatTargets.length + seatOrderIdx;
+        const delay = cardSeq * staggerMs;
+        const isHumanTarget = target?.classList.contains('human-hand-row') ?? false;
+        const assignedHumanEl = isHumanTarget ? humanHandCards[humanCardIdx++] ?? null : null;
+
+        if (!target) return;
+        const tRect = assignedHumanEl ? assignedHumanEl.getBoundingClientRect() : target.getBoundingClientRect();
+        if (tRect.width === 0) return;
+
+        const tx = tRect.left + tRect.width / 2 - w / 2;
+        const ty = tRect.top + tRect.height / 2 - h / 2;
+
         const proxy = document.createElement('div');
         proxy.className = 'anim-proxy-mover';
         proxy.style.width = `${w}px`;
@@ -339,20 +377,26 @@ export class MatchAnimator {
         proxy.appendChild(back);
         this.overlay.appendChild(proxy);
 
+        if (onStepSound && cardSeq % 2 === 0) {
+          this.trackTimer(() => {
+            onStepSound(cardSeq);
+          }, delay, myEpoch);
+        }
+
         const anim = proxy.animate(
           [
             {
-              transform: `translate3d(${sx}px, ${sy}px, 0) scale(0.95)`,
-              opacity: 0.95,
+              transform: `translate3d(${sx}px, ${sy}px, 0) scale(0.92)`,
+              opacity: 0.96,
             },
             {
-              transform: `translate3d(${tx + copy * 6}px, ${ty}px, 0) scale(0.7)`,
-              opacity: 0.15,
+              transform: `translate3d(${tx}px, ${ty}px, 0) scale(${isHumanTarget ? 0.92 : 0.68})`,
+              opacity: isHumanTarget ? 1 : 0.25,
             },
           ],
           {
-            duration: 240,
-            delay: delay + copy * 45,
+            duration: flightMs,
+            delay,
             easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
             fill: 'forwards',
           }
@@ -360,15 +404,26 @@ export class MatchAnimator {
         this.activeAnims.push(anim);
         anim.finished
           .then(() => {
-            if (myEpoch === this.epoch) {
+            if (myEpoch !== this.epoch) {
               proxy.remove();
+              return;
             }
+            if (assignedHumanEl) {
+              assignedHumanEl.style.visibility = '';
+              this.pulseLanded(assignedHumanEl);
+            }
+            proxy.remove();
           })
           .catch(() => {
             proxy.remove();
           });
-      }
-    });
+      });
+    }
+
+    const totalDuration = (totalCards - 1) * staggerMs + flightMs + 60;
+    this.trackTimer(() => {
+      this.pendingComplete?.();
+    }, totalDuration, myEpoch);
   }
 
   /**

@@ -3150,3 +3150,64 @@ body {
   border: 1px solid rgba(251, 146, 60, 0.8);
   box-shadow: 0 0 10px rgba(249, 115, 22, 0.45);
 }
+
+/* Exposed Ngejuk (Jukjukan) Cards */
+.bot-exposed-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 7px;
+  border-radius: 10px;
+  background: rgba(120, 53, 15, 0.45);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.bot-exposed-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fde68a;
+}
+
+.bot-exposed-cards {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.bot-exposed-cards .classic-card {
+  transform: scale(0.84);
+  transform-origin: center;
+  margin: -5px -4px;
+}
+
+.classic-card.is-exposed-ngejuk {
+  box-shadow:
+    0 0 0 2px rgba(251, 191, 36, 0.9),
+    0 6px 14px rgba(180, 83, 9, 0.45);
+}
+
+.classic-card.is-discard-locked {
+  cursor: not-allowed;
+}
+
+.exposed-ngejuk-badge {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: rgba(180, 83, 9, 0.92);
+  color: #fef3c7;
+  border: 1px solid rgba(253, 224, 71, 0.7);
+  pointer-events: none;
+  z-index: 4;
+  white-space: nowrap;
+}

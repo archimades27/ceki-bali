@@ -1,3 +1,4 @@
+import { canDiscardCardFromHand } from './engine.ts';
 import {
   evaluateHandScore,
   findBestPartialMelds,
@@ -62,11 +63,14 @@ export function decideBotDiscard(player: Player, state: GameState): CardInstance
     }
   }
 
-  let bestCard = hand[0];
+  let bestCard: CardInstance | null = null;
   let bestScore = -Infinity;
 
   for (let i = 0; i < hand.length; i++) {
     const candidateDiscard = hand[i];
+    if (!canDiscardCardFromHand(player, candidateDiscard.id, playStyle)) {
+      continue;
+    }
     const remaining11 = hand.filter((_, idx) => idx !== i);
 
     let score = evaluateHandScore(remaining11, playStyle);
@@ -98,5 +102,5 @@ export function decideBotDiscard(player: Player, state: GameState): CardInstance
     }
   }
 
-  return bestCard;
+  return bestCard ?? hand[0];
 }
