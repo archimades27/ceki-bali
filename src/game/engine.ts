@@ -7,7 +7,12 @@ import {
   getNyagaWaits,
   getReadyStatus,
 } from './melds.ts';
-import type { CardInstance, GameState, Player, PlayStyle } from './types.ts';
+import type { CardInstance, GameRulesOptions, GameState, Player, PlayStyle } from './types.ts';
+
+export const DEFAULT_GAME_RULES: GameRulesOptions = {
+  revealWaitingCards: false,
+  nyagaWinRule: 'ngupak_only',
+};
 
 export function createInitialPlayers(): Player[] {
   return [
@@ -118,10 +123,12 @@ export function canDiscardPendingCard(state: GameState): boolean {
 export function startNewRound(
   existingState?: GameState,
   playStyleOverride?: PlayStyle,
-  customPlayers?: Player[]
+  customPlayers?: Player[],
+  rulesOverride?: GameRulesOptions
 ): GameState {
   const deck = createDeck();
   const playStyle: PlayStyle = playStyleOverride ?? existingState?.playStyle ?? 'nyari';
+  const rules: GameRulesOptions = rulesOverride ?? existingState?.rules ?? DEFAULT_GAME_RULES;
   // Randomize starting player at round spawn
   const playerCount = customPlayers?.length ?? existingState?.players.length ?? 5;
   const startPlayerIndex = Math.floor(Math.random() * playerCount);
@@ -179,6 +186,7 @@ export function startNewRound(
   return {
     round,
     playStyle,
+    rules,
     players,
     currentPlayerIndex: startPlayerIndex,
     phase: firstPlayer.isHuman ? 'awaiting_draw' : 'bot_thinking',
@@ -218,11 +226,43 @@ function canCurrentPlayerDiscard(state: GameState, playerIndex = state.currentPl
   return state.phase === 'bot_thinking' && state.botStep === 'discard' && player.hand.length === 12;
 }
 
+export function getExposedTableCards(
+  player: Player,
+  playStyle: PlayStyle = 'nyari'
+): CardInstance[] {
+  const exposedIds = new Set(player.exposedCardIds ?? []);
+  if (exposedIds.size === 0) return [];
+  const partial = findBestPartialMelds(player.hand, playStyle);
+  const shownIds = new Set<string>(exposedIds);
+  for (const meld of partial.melds) {
+    if (meld.cards.some((c) => exposedIds.has(c.id))) {
+      for (const c of meld.cards) {
+        shownIds.add(c.id);
+      }
+    }
+  }
+  return player.hand.filter((c) => shownIds.has(c.id));
+}
+
+export function getExposedWaitingCards(
+  player: Player,
+  playStyle: PlayStyle = 'nyari'
+): CardInstance[] {
+  if (player.hand.length !== 11) return [];
+  if (player.readyMode !== 'mecari' && player.readyMode !== 'mejaga') return [];
+  const partial = findBestPartialMelds(player.hand, playStyle);
+  if (partial.melds.length === 3 && partial.leftover.length === 2) {
+    return partial.leftover;
+  }
+  return [];
+}
+
 function checkKupakNyariWinner(
   state: GameState,
   openedCard: CardInstance,
   openerIdx: number,
-  sourceLabel: string
+  sourceLabel: string,
+  allowMejaga = true
 ): GameState | null {
   const count = state.players.length;
   for (let offset = 1; offset < count; offset++) {
@@ -231,10 +271,16 @@ function checkKupakNyariWinner(
     if (!candidate || candidate.hand.length !== 11) continue;
     const winRes = checkWinWithCard(candidate.hand, openedCard, state.playStyle);
     if (!winRes) continue;
+    if (!allowMejaga && winRes.mode === 'mejaga') continue;
 
     const fullHand = [...candidate.hand, openedCard];
     const openerName = state.players[openerIdx]?.name ?? 'Pemain';
     const modeLabel = winRes.mode === 'mejaga' ? 'Mejaga' : 'Mecari';
+    const actionPrefix = sourceLabel === 'Buangan' ? `Menang ${modeLabel} (Buangan` : `Menang Kupak ${modeLabel} (${sourceLabel}`;
+    const reasonSource =
+      sourceLabel === 'Buangan'
+        ? `${modeLabel} Buangan — ${CARD_DEFS[openedCard.key].balineseName} dibuang oleh ${openerName}`
+        : `Kupak ${modeLabel} — ${CARD_DEFS[openedCard.key].balineseName} dibuka oleh ${openerName}`;
     const updatedPlayers = state.players.map((p, pIdx) =>
       pIdx === idx
         ? { ...p, hand: fullHand, score: p.score + 10, statusText: `CEKI (${modeLabel})!` }
@@ -251,14 +297,14 @@ function checkKupakNyariWinner(
       winnerId: candidate.id,
       winKind: 'kupak',
       winningMelds: winRes.melds,
-      winReason: `${candidate.name} menang CEKI! (Kupak ${modeLabel} — ${CARD_DEFS[openedCard.key].balineseName} dibuka oleh ${openerName})`,
-      lastActionLog: `${candidate.name} langsung menang CEKI (Kupak ${modeLabel} ${CARD_DEFS[openedCard.key].balineseName} dari ${openerName})! (+10 poin)`,
+      winReason: `${candidate.name} menang CEKI! (${reasonSource})`,
+      lastActionLog: `${candidate.name} langsung menang CEKI (${reasonSource})! (+10 poin)`,
       history: [
         ...state.history,
         {
           round: state.round,
           actor: candidate.name,
-          action: `Menang Kupak ${modeLabel} (${sourceLabel} ${openerName})`,
+          action: `${actionPrefix} ${openerName})`,
           cardName: CARD_DEFS[openedCard.key].balineseName,
         },
       ],
@@ -497,22 +543,6 @@ export function discardPendingDrawnCard(state: GameState): GameState {
     },
   ];
 
-  if (state.stock.length === 0) {
-    return {
-      ...state,
-      players: updatedPlayers,
-      pendingDrawnCard: null,
-      lastDiscardPlayerIndex: activeIdx,
-      lastDrawnCardId: null,
-      phase: 'round_over',
-      botStep: null,
-      winnerId: null,
-      winReason: 'Tumpukan habis — Babak berakhir Seri!',
-      lastActionLog: `${activePlayer.name} membuang ${CARD_DEFS[cardToDiscard.key].balineseName}. Tumpukan habis!`,
-      history: nextHistory,
-    };
-  }
-
   const nextState: GameState = {
     ...state,
     players: updatedPlayers,
@@ -527,7 +557,29 @@ export function discardPendingDrawnCard(state: GameState): GameState {
     history: nextHistory,
   };
 
-  // Ngenen tidak boleh dari hasil buangan kartu di tangan; hanya dari kupakan tumpukan
+  // Mencari (Mecari) boleh menyambar buangan untuk menang; Nyaga sesuai opsi (wajib ngupak atau bebas)
+  const allowMejagaFromBuangan = (nextState.rules?.nyagaWinRule ?? 'ngupak_only') === 'free';
+  const buanganWin = checkKupakNyariWinner(
+    nextState,
+    cardToDiscard,
+    activeIdx,
+    'Buangan',
+    allowMejagaFromBuangan
+  );
+  if (buanganWin) return buanganWin;
+
+  if (state.stock.length === 0) {
+    return {
+      ...nextState,
+      currentPlayerIndex: activeIdx,
+      phase: 'round_over',
+      botStep: null,
+      winnerId: null,
+      winReason: 'Tumpukan habis — Babak berakhir Seri!',
+      lastActionLog: `${activePlayer.name} membuang ${CARD_DEFS[cardToDiscard.key].balineseName}. Tumpukan habis!`,
+    };
+  }
+
   return nextState;
 }
 
@@ -629,21 +681,6 @@ export function discardCard(
     },
   ];
 
-  if (state.stock.length === 0) {
-    return {
-      ...state,
-      players: updatedPlayers,
-      lastDiscardPlayerIndex: playerIdx,
-      lastDrawnCardId: null,
-      phase: 'round_over',
-      botStep: null,
-      winnerId: null,
-      winReason: 'Tumpukan habis — Babak berakhir Seri!',
-      lastActionLog: `${player.name} membuang ${CARD_DEFS[cardToDiscard.key].balineseName}. Tumpukan habis!`,
-      history: nextHistory,
-    };
-  }
-
   const nextState: GameState = {
     ...state,
     players: updatedPlayers,
@@ -657,7 +694,29 @@ export function discardCard(
     history: nextHistory,
   };
 
-  // Ngenen tidak boleh dari hasil buangan kartu di tangan; hanya dari kupakan tumpukan
+  // Mencari (Mecari) boleh menyambar buangan untuk menang; Nyaga sesuai opsi (wajib ngupak atau bebas)
+  const allowMejagaFromBuangan = (nextState.rules?.nyagaWinRule ?? 'ngupak_only') === 'free';
+  const buanganWin = checkKupakNyariWinner(
+    nextState,
+    cardToDiscard,
+    playerIdx,
+    'Buangan',
+    allowMejagaFromBuangan
+  );
+  if (buanganWin) return buanganWin;
+
+  if (state.stock.length === 0) {
+    return {
+      ...nextState,
+      currentPlayerIndex: playerIdx,
+      phase: 'round_over',
+      botStep: null,
+      winnerId: null,
+      winReason: 'Tumpukan habis — Babak berakhir Seri!',
+      lastActionLog: `${player.name} membuang ${CARD_DEFS[cardToDiscard.key].balineseName}. Tumpukan habis!`,
+    };
+  }
+
   return nextState;
 }
 

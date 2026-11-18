@@ -54,9 +54,9 @@ const STEPS: TutorialStep[] = [
     tip: 'Aturan Ngutang-Ngejuk: Anda tidak boleh mengejuk kartu yang sama persis dengan kartu yang baru saja Anda buang pada giliran sebelumnya.',
   },
   {
-    title: 'Buang Kartu & Posisi Nyari',
-    subtitle: 'Langkah 4 dari 5 — Kurang 1 Kartu Menuju Menang',
-    body: 'Setelah mengambil kartu (jika belum Ceki), klik kartu mana saja di tangan untuk dibuang ke sebelah kanan Anda. Jika 11 kartu Anda tinggal menunggu 1 kartu lagi, status "NYARI!" akan muncul.',
+    title: 'Mencari (Mecari) vs Nyaga (Mejaga)',
+    subtitle: 'Langkah 4 dari 6 — Menang dari Ngupak vs Buangan',
+    body: 'Mecari (1 Soca + 2 Serigat/Lawang + 2 Cecarian) BOLEH menang baik dari Ngupak maupun menyambar Buangan lawan (prioritas jarak terdekat searah putaran / ilehan). Sebaliknya, Nyaga (2 Soca + 1 Serigat/Lawang + 2 Jejagan) HANYA boleh menang dari Ngupak sendiri — dilarang menyambar buangan!',
     showcaseTitle: 'Contoh Posisi Nyari (Menunggu 1 kartu penutup)',
     cards: [
       { key: 'tong2', caption: 'Cawang' },
@@ -65,8 +65,20 @@ const STEPS: TutorialStep[] = [
     tip: 'Aktifkan tombol "Saran" di bilah atas jika ingin melihat rekomendasi kartu terbaik untuk dibuang.',
   },
   {
+    title: 'Menurunkan Kartu & Pelanggaran (Nongong)',
+    subtitle: 'Langkah 5 dari 6 — Jukjukan Terbuka & Aturan Meja',
+    body: 'Set (Soca/Serigat/Lawang) yang dibentuk dari hasil Buangan (Jukjukan) wajib diturunkan terbuka di meja, sedangkan set dari Ngupak dan kartu tunggu tetap tertutup. Saat menang (Ngenen), semua 12 kartu dibuka rapi untuk diperiksa.',
+    showcaseTitle: 'Contoh Jukjukan Terbuka di Meja',
+    cards: [
+      { key: 'tong4', caption: 'Soca Terbuka' },
+      { key: 'tong4', caption: 'Soca Terbuka' },
+      { key: 'tong4', caption: 'Jukjukan' },
+    ],
+    tip: 'Pelanggaran (Nongong): menyambar buangan saat posisi Nyaga, susunan 12 kartu tidak valid, atau mengambil kartu yang dilarang (Ngutang-Ngejuk).',
+  },
+  {
     title: 'Serukan "Ceki!" (Ngenen)',
-    subtitle: 'Langkah 5 dari 5 — Memenangkan Babak',
+    subtitle: 'Langkah 6 dari 6 — Memenangkan Babak',
     body: 'Begitu 12 kartu di tangan membentuk 4 susunan lengkap sesuai gaya bermain yang dipilih, tombol emas "Ceki!" akan menyala! Klik untuk mengakhiri babak dan meraih +10 poin.',
     showcaseTitle: 'Siap Bermain Melawan Made, Nyoman, Ketut, dan Wayan!',
     cards: [

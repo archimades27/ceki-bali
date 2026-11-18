@@ -270,7 +270,7 @@ body {
   grid-area: top-left;
   justify-self: end;
   align-self: start;
-  transform: scale(0.86) translate(-16px, 6px);
+  transform: scale(0.84) translate(-34px, 4px);
   transform-origin: top right;
 }
 
@@ -278,7 +278,7 @@ body {
   grid-area: top-right;
   justify-self: start;
   align-self: start;
-  transform: scale(0.86) translate(16px, 6px);
+  transform: scale(0.84) translate(34px, 4px);
   transform-origin: top left;
 }
 
@@ -286,7 +286,7 @@ body {
   grid-area: left;
   justify-self: start;
   align-self: center;
-  transform: scale(0.88) translate(16px, -8px);
+  transform: scale(0.84) translate(22px, 34px);
   transform-origin: left center;
 }
 
@@ -1254,7 +1254,7 @@ body {
 .pending-spotlight {
   position: absolute;
   left: 50%;
-  bottom: clamp(134px, 19vh, 164px);
+  bottom: clamp(195px, 26vh, 225px);
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -1274,6 +1274,7 @@ body {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
+  margin-bottom: 4px;
 }
 
 .pending-match-tag {
@@ -3151,21 +3152,33 @@ body {
   box-shadow: 0 0 10px rgba(249, 115, 22, 0.45);
 }
 
-/* Exposed Ngejuk (Jukjukan) Cards */
+/* Exposed Ngejuk (Jukjukan) & Waiting Cards */
+.bot-exposed-wrap {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+}
+
 .bot-exposed-row {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 4px 7px;
+  padding: 4px 6px;
   border-radius: 10px;
   background: rgba(120, 53, 15, 0.45);
   border: 1px solid rgba(251, 191, 36, 0.55);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
+.bot-exposed-row.is-waiting-row {
+  background: rgba(154, 52, 18, 0.45);
+  border-color: rgba(251, 146, 60, 0.72);
+}
+
 .bot-exposed-label {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3175,13 +3188,56 @@ body {
 .bot-exposed-cards {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
 }
 
 .bot-exposed-cards .classic-card {
-  transform: scale(0.84);
+  transform: scale(0.76);
   transform-origin: center;
-  margin: -5px -4px;
+  margin: -8px -6px;
+}
+
+.startup-rules-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.startup-rule-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: rgba(15, 23, 42, 0.6);
+  color: #e2e8f0;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.startup-rule-toggle:hover {
+  border-color: rgba(251, 191, 36, 0.65);
+}
+
+.startup-rule-toggle.is-on {
+  background: rgba(120, 53, 15, 0.55);
+  border-color: rgba(251, 191, 36, 0.85);
+}
+
+.startup-rule-toggle .rule-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #cbd5e1;
+}
+
+.startup-rule-toggle strong {
+  font-size: 0.84rem;
+  color: #fde68a;
 }
 
 .classic-card.is-exposed-ngejuk {

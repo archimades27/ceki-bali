@@ -29,6 +29,15 @@ export type MeldType = 'soca' | 'serigat' | 'lawang';
 
 export type PlayStyle = 'soca' | 'serigat' | 'nyari';
 
+export type NyagaWinRule = 'ngupak_only' | 'free';
+
+export interface GameRulesOptions {
+  /** Whether waiting cards (Cecarian / Jejagan) are shown face-up when Mecari / Mejaga */
+  revealWaitingCards: boolean;
+  /** 'ngupak_only' = Nyaga must win from Ngupak; 'free' = Nyaga can also win from Buangan */
+  nyagaWinRule: NyagaWinRule;
+}
+
 export interface Meld {
   type: MeldType;
   cards: CardInstance[];
@@ -65,6 +74,7 @@ export interface HistoryEntry {
 export interface GameState {
   round: number;
   playStyle: PlayStyle;
+  rules?: GameRulesOptions;
   players: Player[];
   currentPlayerIndex: number;
   phase: TurnPhase;

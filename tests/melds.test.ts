@@ -11,6 +11,8 @@ import {
   discardCard,
   discardPendingDrawnCard,
   drawFromStock,
+  getExposedTableCards,
+  getExposedWaitingCards,
   getNgejukTarget,
   ngejukDiscard,
   startNewRound,
@@ -487,6 +489,73 @@ for (let step = 0; step < 30 && state.phase !== 'round_over'; step++) {
     ),
   };
   assert.equal(getNgejukTarget(ngutangState), null, 'Ngutang-Ngejuk: cannot Ngejuk the same card key just discarded');
+
+  // 15. Mecari CAN win from opponent's Buangan (with Ilehan priority), while Mejaga (Nyaga) CANNOT
+  const mecari11: CardInstance[] = [
+    makeCard('tong2', 1), makeCard('tong2', 2), makeCard('tong2', 3),
+    makeCard('white_flower', 1), makeCard('sok1', 1), makeCard('tong1', 1),
+    makeCard('tong4', 1), makeCard('sok4', 1), makeCard('ban4', 1),
+    makeCard('ban1', 1), makeCard('ban1', 2),
+  ];
+  assert.equal(getReadyStatus(mecari11, 'nyari').mode, 'mecari');
+
+  // Player 1 discards ban1_3 while Player 4 (farther) & Player 0 (closer counter-clockwise: 1 -> 0 -> 4) are both Mecari
+  let ilehanState = startNewRound(undefined, 'nyari');
+  const ban1Discard = makeCard('ban1', 3);
+  ilehanState = {
+    ...ilehanState,
+    currentPlayerIndex: 1,
+    phase: 'bot_thinking',
+    botStep: 'discard',
+    players: ilehanState.players.map((p, idx) =>
+      idx === 0
+        ? { ...p, hand: mecari11 }
+        : idx === 4
+          ? { ...p, hand: mecari11 }
+          : idx === 1
+            ? { ...p, hand: [...p.hand, ban1Discard] }
+            : p
+    ),
+  };
+  ilehanState = discardCard(ilehanState, ban1Discard.id);
+  assert.equal(ilehanState.phase, 'round_over', 'Mecari player must win immediately from Buangan');
+  assert.equal(ilehanState.winnerId, 0, 'Closest Mecari player in counter-clockwise ilehan (1 -> 0) must win');
+
+  // getExposedTableCards exposes full 3-card set when an exposed Ngejuk card forms a meld
+  const exposedSet = getExposedTableCards(
+    { ...ilehanState.players[0], hand: [...mecari11, ban1Discard], exposedCardIds: [ban1Discard.id] },
+    'nyari'
+  );
+  assert.equal(exposedSet.length, 3, 'Exposed Ngejuk card completing a Soca should lay down all 3 cards');
+
+  // 16. GameRulesOptions: nyagaWinRule ('free' vs 'ngupak_only') & getExposedWaitingCards
+  const mejagaWaitCards = getExposedWaitingCards(
+    { ...ilehanState.players[0], hand: mejaga11, readyMode: 'mejaga' },
+    'nyari'
+  );
+  assert.equal(mejagaWaitCards.length, 2, 'getExposedWaitingCards must return the 2 waiting cards');
+
+  let freeNyagaState = startNewRound(undefined, 'nyari', undefined, {
+    revealWaitingCards: true,
+    nyagaWinRule: 'free',
+  });
+  const freeDiscard = makeCard('old_thousand', 3);
+  freeNyagaState = {
+    ...freeNyagaState,
+    currentPlayerIndex: 1,
+    phase: 'bot_thinking',
+    botStep: 'discard',
+    players: freeNyagaState.players.map((p, idx) =>
+      idx === 0
+        ? { ...p, hand: mejaga11 }
+        : idx === 1
+          ? { ...p, hand: [...p.hand, freeDiscard] }
+          : p
+    ),
+  };
+  freeNyagaState = discardCard(freeNyagaState, freeDiscard.id);
+  assert.equal(freeNyagaState.phase, 'round_over', 'With nyagaWinRule=free, Mejaga CAN win from Buangan');
+  assert.equal(freeNyagaState.winnerId, 0);
 }
 
 console.log('All 5-player Ceki Bali (Soca/Serigat/Nyari) tests passed!');

@@ -10,6 +10,8 @@ import {
   discardCard,
   discardPendingDrawnCard,
   drawFromStock,
+  getExposedTableCards,
+  getExposedWaitingCards,
   getNgejukTarget,
   getRecommendedDiscardId,
   ngejukDiscard,
@@ -26,7 +28,15 @@ import {
   getNyagaWaits,
   getReadyStatus,
 } from './game/melds.ts';
-import type { CardInstance, GameState, Meld, MeldType, Player } from './game/types.ts';
+import type {
+  CardInstance,
+  GameRulesOptions,
+  GameState,
+  Meld,
+  MeldType,
+  NyagaWinRule,
+  Player,
+} from './game/types.ts';
 import { sfx } from './ui/audio.ts';
 import { preloadCardAssets, renderCardBack, renderClassicCard } from './ui/cardRenderer.ts';
 import { DeckInputController } from './ui/gamepad.ts';
@@ -72,6 +82,13 @@ let hostErrorMsg: string | null = null;
 let hostSnapshot: RoomStatePayload | null = null;
 let customTurnSeconds = Number(window.localStorage.getItem('ceki_bali_turn_sec') ?? '15');
 if (Number.isNaN(customTurnSeconds) || customTurnSeconds < 0) customTurnSeconds = 15;
+let revealWaitingCards = window.localStorage.getItem('ceki_bali_reveal_waiting') === '1';
+let nyagaWinRule: NyagaWinRule =
+  window.localStorage.getItem('ceki_bali_nyaga_rule') === 'free' ? 'free' : 'ngupak_only';
+
+function getRulesOptions(): GameRulesOptions {
+  return { revealWaitingCards, nyagaWinRule };
+}
 let activeTurnDeadlineAt: number | null = null;
 let soloTurnTimer: number | null = null;
 let savedPlayerName = window.localStorage.getItem('ceki_bali_lan_name') || 'Pemain';
@@ -1166,7 +1183,7 @@ function triggerRoundDealAnimation(onComplete?: () => void): void {
 function startRoundWithDeal(): void {
   if (isMultiplayer()) {
     if (isHostingLan()) {
-      lanHost.startRound(customTurnSeconds);
+      lanHost.startRound(customTurnSeconds, getRulesOptions());
     } else {
       sendGuestMessage({ type: 'start_round', turnSeconds: customTurnSeconds });
     }
@@ -1177,7 +1194,7 @@ function startRoundWithDeal(): void {
   manualOrderMode = false;
   selectedMoveCardId = null;
   cekiModalReady = true;
-  state = startNewRound(state);
+  state = startNewRound(state, undefined, undefined, getRulesOptions());
   seedKnownMelds(state, 0);
   resetSoloTurnTimer();
   render();
@@ -1336,10 +1353,12 @@ function renderBotSeat(
     </div>
   `;
 
-  // Only show bot badge + exposed Ngejuk cards (jukjukan) + discarded cards to the RIGHT
-  const exposedCards = (player.exposedCardIds ?? [])
-    .map((id) => player.hand.find((c) => c.id === id))
-    .filter((c): c is CardInstance => Boolean(c));
+  // Only show bot badge + exposed Ngejuk cards/sets (jukjukan) + optional waiting cards + discards
+  const exposedCards = getExposedTableCards(player, state.playStyle);
+  const waitingCards =
+    state.rules?.revealWaitingCards && state.phase !== 'round_over'
+      ? getExposedWaitingCards(player, state.playStyle)
+      : [];
 
   const rightDiscards = renderPlayerRightDiscards(
     playerIdx,
@@ -1349,20 +1368,44 @@ function renderBotSeat(
     neededKeys
   );
 
-  if (exposedCards.length > 0 && state.phase !== 'round_over') {
-    const exposedRow = document.createElement('div');
-    exposedRow.className = 'bot-exposed-row';
-    exposedRow.title = 'Kartu Jukjukan (hasil Ngejuk, terbuka untuk semua pemain)';
-    const lbl = document.createElement('span');
-    lbl.className = 'bot-exposed-label';
-    lbl.textContent = 'Jukjukan';
-    const cardsBox = document.createElement('div');
-    cardsBox.className = 'bot-exposed-cards';
-    for (const ec of exposedCards) {
-      cardsBox.appendChild(renderClassicCard(ec.key, { small: true }));
+  if ((exposedCards.length > 0 || waitingCards.length > 0) && state.phase !== 'round_over') {
+    const exposedWrap = document.createElement('div');
+    exposedWrap.className = 'bot-exposed-wrap';
+
+    if (exposedCards.length > 0) {
+      const exposedRow = document.createElement('div');
+      exposedRow.className = 'bot-exposed-row';
+      exposedRow.title = 'Kartu Jukjukan (hasil Ngejuk, terbuka untuk semua pemain)';
+      const lbl = document.createElement('span');
+      lbl.className = 'bot-exposed-label';
+      lbl.textContent = 'Jukjukan';
+      const cardsBox = document.createElement('div');
+      cardsBox.className = 'bot-exposed-cards';
+      for (const ec of exposedCards) {
+        cardsBox.appendChild(renderClassicCard(ec.key, { small: true }));
+      }
+      exposedRow.append(lbl, cardsBox);
+      exposedWrap.appendChild(exposedRow);
     }
-    exposedRow.append(lbl, cardsBox);
-    seat.append(badge, exposedRow, rightDiscards);
+
+    if (waitingCards.length > 0) {
+      const waitRow = document.createElement('div');
+      waitRow.className = 'bot-exposed-row is-waiting-row';
+      const waitTitle = player.readyMode === 'mejaga' ? 'Jejagan' : 'Cecarian';
+      waitRow.title = `Kartu Tunggu (${waitTitle}) dibuka sesuai opsi aturan meja`;
+      const lbl = document.createElement('span');
+      lbl.className = 'bot-exposed-label';
+      lbl.textContent = waitTitle;
+      const cardsBox = document.createElement('div');
+      cardsBox.className = 'bot-exposed-cards';
+      for (const wc of waitingCards) {
+        cardsBox.appendChild(renderClassicCard(wc.key, { small: true }));
+      }
+      waitRow.append(lbl, cardsBox);
+      exposedWrap.appendChild(waitRow);
+    }
+
+    seat.append(badge, exposedWrap, rightDiscards);
   } else {
     seat.append(badge, rightDiscards);
   }
@@ -1558,6 +1601,37 @@ function render(): void {
     });
     nameRow.append(nameLbl, nameInput);
 
+    const rulesBox = document.createElement('div');
+    rulesBox.className = 'startup-rules-grid';
+
+    const waitRuleBtn = document.createElement('button');
+    waitRuleBtn.type = 'button';
+    waitRuleBtn.className = `startup-rule-toggle ${revealWaitingCards ? 'is-on' : ''}`;
+    waitRuleBtn.innerHTML = `
+      <span class="rule-title">Kartu Tunggu (Cari/Nyaga)</span>
+      <strong>${revealWaitingCards ? 'Terbuka (Dilihat Semua)' : 'Tertutup (Rahasia)'}</strong>
+    `;
+    waitRuleBtn.addEventListener('click', () => {
+      revealWaitingCards = !revealWaitingCards;
+      window.localStorage.setItem('ceki_bali_reveal_waiting', revealWaitingCards ? '1' : '0');
+      render();
+    });
+
+    const nyagaRuleBtn = document.createElement('button');
+    nyagaRuleBtn.type = 'button';
+    nyagaRuleBtn.className = `startup-rule-toggle ${nyagaWinRule === 'free' ? 'is-on' : ''}`;
+    nyagaRuleBtn.innerHTML = `
+      <span class="rule-title">Menang Nyaga</span>
+      <strong>${nyagaWinRule === 'free' ? 'Bebas (Boleh Buangan)' : 'Wajib Ngupak Sendiri'}</strong>
+    `;
+    nyagaRuleBtn.addEventListener('click', () => {
+      nyagaWinRule = nyagaWinRule === 'ngupak_only' ? 'free' : 'ngupak_only';
+      window.localStorage.setItem('ceki_bali_nyaga_rule', nyagaWinRule);
+      render();
+    });
+
+    rulesBox.append(waitRuleBtn, nyagaRuleBtn);
+
     const modesGrid = document.createElement('div');
     modesGrid.className = 'startup-modes';
 
@@ -1608,7 +1682,7 @@ function render(): void {
     guideBtn.textContent = '📖 Panduan & Aturan Main';
     guideBtn.addEventListener('click', () => tutorial.open(0));
 
-    card.append(nameRow, modesGrid, guideBtn);
+    card.append(nameRow, rulesBox, modesGrid, guideBtn);
     startWrap.appendChild(card);
     app.appendChild(startWrap);
     return;
@@ -2711,7 +2785,7 @@ function render(): void {
       startLanBtn.addEventListener('click', () => {
         lanMode = true;
         if (isHostingLan()) {
-          lanHost.startRound(customTurnSeconds);
+          lanHost.startRound(customTurnSeconds, getRulesOptions());
         } else {
           lan.send({ type: 'start_round', turnSeconds: customTurnSeconds });
         }
@@ -2973,7 +3047,7 @@ function render(): void {
       startOnlineBtn.addEventListener('click', () => {
         onlineMode = true;
         if (isHostingLan()) {
-          lanHost.startRound(customTurnSeconds);
+          lanHost.startRound(customTurnSeconds, getRulesOptions());
         } else {
           onlineGuest.send({ type: 'start_round', turnSeconds: customTurnSeconds });
         }

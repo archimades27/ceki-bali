@@ -8,6 +8,8 @@ import {
   discardCard,
   discardPendingDrawnCard,
   drawFromStock,
+  getExposedTableCards,
+  getExposedWaitingCards,
   getNgejukTarget,
   getRecommendedDiscardId,
   ngejukDiscard,
@@ -16,7 +18,7 @@ import {
   startNewRound,
 } from '../game/engine.ts';
 import { findWinningMelds } from '../game/melds.ts';
-import type { CardInstance, GameState, Player } from '../game/types.ts';
+import type { CardInstance, GameRulesOptions, GameState, Player } from '../game/types.ts';
 import type { LobbySeatInfo, RoomStatePayload } from './lanClient.ts';
 
 interface GuestInfo {
@@ -194,7 +196,7 @@ export class LanHostController {
     this.broadcastRoom();
   }
 
-  startRound(turnSeconds?: number): void {
+  startRound(turnSeconds?: number, rulesOverride?: GameRulesOptions): void {
     if (this.status !== 'running') return;
     if (typeof turnSeconds === 'number' && turnSeconds >= 0) {
       this.turnDurationSec = turnSeconds;
@@ -208,7 +210,12 @@ export class LanHostController {
       this.turnTimer = null;
     }
     const players = this.buildPlayers(this.roundActive);
-    this.state = startNewRound(this.roundActive ? this.state : undefined, 'nyari', players);
+    this.state = startNewRound(
+      this.roundActive ? this.state : undefined,
+      'nyari',
+      players,
+      rulesOverride ?? this.state.rules
+    );
     this.roundActive = true;
     this.resetHumanTurnTimer(false);
     this.broadcastRoom({ type: 'start_round', actorIndex: this.state.currentPlayerIndex });
@@ -290,10 +297,18 @@ export class LanHostController {
         if (idx === viewerSeat || this.state.phase === 'round_over') {
           return p;
         }
+        const exposedSet = new Set(
+          getExposedTableCards(p, this.state.playStyle).map((c) => c.id)
+        );
+        if (this.state.rules?.revealWaitingCards) {
+          for (const wc of getExposedWaitingCards(p, this.state.playStyle)) {
+            exposedSet.add(wc.id);
+          }
+        }
         return {
           ...p,
           hand: p.hand.map((c, cIdx) =>
-            p.exposedCardIds?.includes(c.id) ? c : hiddenCard(cIdx, idx)
+            exposedSet.has(c.id) ? c : hiddenCard(cIdx, idx)
           ),
         };
       }),
