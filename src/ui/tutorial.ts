@@ -67,14 +67,12 @@ const STEPS: TutorialStep[] = [
   {
     title: 'Menurunkan Kartu & Pelanggaran (Nongong)',
     subtitle: 'Langkah 5 dari 6 — Jukjukan Terbuka & Aturan Meja',
-    body: 'Set (Soca/Serigat/Lawang) yang dibentuk dari hasil Buangan (Jukjukan) wajib diturunkan terbuka di meja, sedangkan set dari Ngupak dan kartu tunggu tetap tertutup. Saat menang (Ngenen), semua 12 kartu dibuka rapi untuk diperiksa.',
+    body: 'Hanya kartu hasil Ngejuk (Jukjukan) yang wajib diletakkan terbuka di meja agar dilihat semua pemain; kartu sepadan di tangan tetap tertutup. Saat menang (Ngenen), semua 12 kartu dibuka rapi untuk diperiksa.',
     showcaseTitle: 'Contoh Jukjukan Terbuka di Meja',
     cards: [
-      { key: 'tong4', caption: 'Soca Terbuka' },
-      { key: 'tong4', caption: 'Soca Terbuka' },
       { key: 'tong4', caption: 'Jukjukan' },
     ],
-    tip: 'Pelanggaran (Nongong): menyambar buangan saat posisi Nyaga, susunan 12 kartu tidak valid, atau mengambil kartu yang dilarang (Ngutang-Ngejuk).',
+    tip: 'Pelanggaran (Nongong): menyambar buangan saat posisi Nyaga (jika opsi Wajib Ngupak aktif), susunan 12 kartu tidak valid, atau Ngutang-Ngejuk.',
   },
   {
     title: 'Serukan "Ceki!" (Ngenen)',

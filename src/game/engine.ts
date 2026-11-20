@@ -228,20 +228,11 @@ function canCurrentPlayerDiscard(state: GameState, playerIndex = state.currentPl
 
 export function getExposedTableCards(
   player: Player,
-  playStyle: PlayStyle = 'nyari'
+  _playStyle: PlayStyle = 'nyari'
 ): CardInstance[] {
   const exposedIds = new Set(player.exposedCardIds ?? []);
   if (exposedIds.size === 0) return [];
-  const partial = findBestPartialMelds(player.hand, playStyle);
-  const shownIds = new Set<string>(exposedIds);
-  for (const meld of partial.melds) {
-    if (meld.cards.some((c) => exposedIds.has(c.id))) {
-      for (const c of meld.cards) {
-        shownIds.add(c.id);
-      }
-    }
-  }
-  return player.hand.filter((c) => shownIds.has(c.id));
+  return player.hand.filter((c) => exposedIds.has(c.id));
 }
 
 export function getExposedWaitingCards(

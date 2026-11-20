@@ -521,12 +521,13 @@ for (let step = 0; step < 30 && state.phase !== 'round_over'; step++) {
   assert.equal(ilehanState.phase, 'round_over', 'Mecari player must win immediately from Buangan');
   assert.equal(ilehanState.winnerId, 0, 'Closest Mecari player in counter-clockwise ilehan (1 -> 0) must win');
 
-  // getExposedTableCards exposes full 3-card set when an exposed Ngejuk card forms a meld
+  // getExposedTableCards exposes ONLY the Ngejuk card itself, not matching cards in hand
   const exposedSet = getExposedTableCards(
     { ...ilehanState.players[0], hand: [...mecari11, ban1Discard], exposedCardIds: [ban1Discard.id] },
     'nyari'
   );
-  assert.equal(exposedSet.length, 3, 'Exposed Ngejuk card completing a Soca should lay down all 3 cards');
+  assert.equal(exposedSet.length, 1, 'Only the Ngejuk card itself should be exposed on the table');
+  assert.equal(exposedSet[0].id, ban1Discard.id);
 
   // 16. GameRulesOptions: nyagaWinRule ('free' vs 'ngupak_only') & getExposedWaitingCards
   const mejagaWaitCards = getExposedWaitingCards(
